@@ -1,0 +1,39 @@
+# pip install -r requirements_cpu.txt
+
+--index https://mirrors.ustc.edu.cn/pypi/web/simple
+# Base ----------------------------------------
+matplotlib>=3.2.2
+numpy>=1.18.5
+opencv-python== 4.5.1.48
+Pillow>=7.1.2
+PyYAML>=5.3.1
+requests>=2.23.0
+scipy>=1.4.1
+tqdm>=4.41.0
+
+# Logging -------------------------------------
+tensorboard>=2.4.1
+colorlog
+
+# Plotting ------------------------------------
+pandas>=1.1.4
+seaborn>=0.11.0
+
+
+# Robot ---------------------
+Augmentor==0.2.10
+playsound
+pyserial==3.5
+PyMatting==1.1.8
+onnxruntime==1.10.0
+gdown==4.5.3
+
+
+# CPU
+torch==1.11.0 
+torchvision==0.12.0
+
+# GPU
+# torch==1.11.0+cu113 
+# torchvision==0.12.0+cu113 
+# --extra-index-url https://download.pytorch.org/whl/cu113

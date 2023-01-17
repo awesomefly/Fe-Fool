@@ -1,0 +1,23 @@
+names:
+- baizi
+- heizi
+- heiche
+- heima
+- heixiang
+- heishi
+- heijiang
+- heipao
+- heibing
+- hongche
+- hongma
+- hongxiang
+- hongshi
+- hongshuai
+- hongpao
+- hongbing
+- hand
+nc: 17
+path: ../../image_data/board_game/output_yolo
+test: images/test
+train: images/train
+val: images/val

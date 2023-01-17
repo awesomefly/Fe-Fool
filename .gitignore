@@ -1,0 +1,6 @@
+venv/
+.idea/
+code/venv/
+code/dist/
+code/.idea/
+code/main.spec
