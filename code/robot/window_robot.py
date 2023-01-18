@@ -57,7 +57,7 @@ class RobotSerialPortWindow:
 
     def window(self):
         self.root = tk.Tk()
-        self.root.title('机械臂串口助手 V0.0.1')
+        self.root.title('机械臂运动控制器 V0.0.1')
         self.root.geometry('960x640')
         self.root.protocol('WM_DELETE_WINDOW', self.close)
 
@@ -426,6 +426,7 @@ class RobotSerialPortWindow:
 
     def update(self):
         while self.thread_open_flag:
+            time.sleep(1)
             try:
                 if self.connecting == False:
                     self.search()
