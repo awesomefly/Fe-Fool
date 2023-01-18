@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 from pathlib import Path
@@ -35,7 +36,7 @@ def create_logger(mode):
                 }
             )
 
-        # exe下输出文件
+        # exe下输出文�?
         elif mode == "file":
             log_file = ROOT + "../../Robot.log"
             handler = logging.FileHandler(log_file, mode="w", encoding="UTF-8")
@@ -51,9 +52,9 @@ def create_logger(mode):
 
 
 ROOT = get_root()
-IMAGE_DATA_PATH = ROOT + "../../image_data/"  # 数据集文件相对于robot的路径
-PARAMS_YAML = ROOT + "../../params.yaml"  # params.yaml文件相对于robot的路径
+IMAGE_DATA_PATH = ROOT + "../../image_data/"  # 数据集文件相对于robot的路�?
+PARAMS_YAML = ROOT + "../../params.yaml"  # params.yaml文件相对于robot的路�?
 SERVER_ADDR = ('localhost', 8000)  # 机械臂IP地址与端口号
 
-# LOG = create_logger("console")
-LOG = create_logger("file")
+LOG = create_logger("console")
+# LOG = create_logger("file")
