@@ -37,7 +37,7 @@ def tk_show_img(panel, img):
 
 
 class DetecterWindow(Observable):
-    def __init__(self):
+    def __init__(self, root, window_flag_bit=None):
         super().__init__()
         self.detect_flag = False
         self.connect_flag = False
@@ -47,10 +47,12 @@ class DetecterWindow(Observable):
         self.canny_min_threshold = 30
         self.canny_max_threshold = 250
 
-        self.window()
+        self.window_flag_bit = window_flag_bit
+        self.window(root)
 
-    def window(self):
-        self.root = tkinter.Tk()
+
+    def window(self, root):
+        self.root = root
         self.root.config(width=400, height=1000)
         self.root.title("下棋&抓取")
         self.panel = tkinter.Label(self.root)
@@ -106,8 +108,6 @@ class DetecterWindow(Observable):
         # 工作类型
         self.game_mode = tkinter.IntVar(self.root)
 
-        self.root.mainloop()
-
     def select_camera(self, *args):
         self.camera_label.grid_forget()
         self.cameraselect.grid_forget()
@@ -136,6 +136,8 @@ class DetecterWindow(Observable):
     def close(self):
         self.detect_flag = False
         self.root.destroy()
+        if self.window_flag_bit is not None:
+            self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 2)
 
     def connect_cmd(self):
         if self.connect_button['text'] == '开始工作':
@@ -331,4 +333,6 @@ class DetecterWindow(Observable):
 
 
 if __name__ == '__main__':
-    DetecterWindow()
+    root = tkinter.Tk()
+    DetecterWindow(root)
+    root.mainloop()
