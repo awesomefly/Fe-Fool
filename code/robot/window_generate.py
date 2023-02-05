@@ -66,17 +66,18 @@ def crop_image(img):
 
 
 class GeneraterWindow:
-    def __init__(self):
+    def __init__(self, root, window_flag_bit=None):
         self.detect_flag = True
         self.save_background_flag = False
         self.save_foreground_flag = False
         self.is_first_frame = True
         self.session = new_session("u2netp")
 
-        self.window()
+        self.window_flag_bit = window_flag_bit
+        self.window(root)
 
-    def window(self):
-        self.root = tkinter.Tk()
+    def window(self,root):
+        self.root = root
         self.root.config(width=400, height=1000)
         self.root.title("数据集制作")
         self.root.protocol('WM_DELETE_WINDOW', self.close)
@@ -94,15 +95,14 @@ class GeneraterWindow:
         self.camera_panel.grid(row=0, rowspan=5, column=0)
 
         self.target_panel = tkinter.Label(self.root)
-        self.name_input_label = tkinter.Label(self.root, text='请输入该物品的名字:', font=('黑体', 12))
+        self.name_input_label = tkinter.Label(self.root, text='请输入该物品的名字:', font=12)
         self.inp_name = tkinter.Entry(self.root)
-        self.class_input_label = tkinter.Label(self.root, text='请输入该物品对应的类别序号:', font=('黑体', 12))
+        self.class_input_label = tkinter.Label(self.root, text='请输入该物品对应的类别序号:', font=12)
         self.inp_class = tkinter.Entry(self.root)
 
         self.save_background_button = tkinter.Button(self.root, text='保存背景', command=self.save_background_img)
         self.save_foreground_button = tkinter.Button(self.root, text='保存物体', command=self.save_foreground_img)
 
-        self.root.mainloop()
 
     def select_camera(self, *args):
         self.select_camera_label.grid_forget()
@@ -129,6 +129,8 @@ class GeneraterWindow:
         self.detect_flag = False
         self.is_first_frame = True
         self.root.destroy()
+        if self.window_flag_bit is not None:
+            self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 2)
 
     def save_background_img(self):
         self.save_background_flag = True
@@ -181,4 +183,6 @@ class GeneraterWindow:
 
 
 if __name__ == '__main__':
-    GeneraterWindow()
+    root = tkinter.Tk()
+    GeneraterWindow(root)
+    root.mainloop()

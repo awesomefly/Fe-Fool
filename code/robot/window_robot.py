@@ -28,7 +28,7 @@ INIT_ENGINE_2 = 1540
 
 
 class RobotSerialPortWindow:
-    def __init__(self):
+    def __init__(self, window_flag_bit=None):
         self.serial = serial.Serial()
         self.device = None
         self.baudrate = 9600
@@ -53,7 +53,9 @@ class RobotSerialPortWindow:
         self.last_engine_list = [INIT_ENGINE_0, INIT_ENGINE_1, INIT_ENGINE_2]
         self.per_angle_time = PER_ANGLE_TIME  # 舵机转动一度需要的时间，ms
 
+        self.window_flag_bit = window_flag_bit
         self.window()
+
 
     def window(self):
         self.root = tk.Tk()
@@ -244,11 +246,14 @@ class RobotSerialPortWindow:
         self.calcparambutton.pack()
 
         self.root.mainloop()
+        self.root.quit()
 
     def close(self):
+        self.working__flag = False
+        self.thread_open_flag = False
+        if self.window_flag_bit is not None:
+            self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 1)
         try:
-            self.working__flag = False
-            self.thread_open_flag = False
             self.root.destroy()
             self.server.close()
             self.restoration()
@@ -683,7 +688,7 @@ class RobotSerialPortWindow:
     def working(self):
         self.robotrun([110, 165, 40])  # 随便设定的初始位置，不挡住相机就行
 
-        self.server = socket.socket()  # 初始化
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 初始化
         self.server.bind(SERVER_ADDR)  # 绑定ip和端口
 
         self.server.listen(5)  # 监听，设置最大数量是5
@@ -693,7 +698,7 @@ class RobotSerialPortWindow:
         while self.working__flag:
             try:
                 self.conn, addr = self.server.accept()  # 获取客户端地址
-                LOG.debug("客户端来数据了")
+                LOG.debug(f"客户端来数据了,地址:{addr}")
                 while self.working__flag:
                     try:
                         data = self.conn.recv(1024)  # 接收数据

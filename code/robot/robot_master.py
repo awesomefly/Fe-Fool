@@ -68,7 +68,7 @@ class RobotMaster(Observer):
     def __init__(self, width, length):
         self.width = width
         self.length = length
-        self.client = socket.socket()
+        self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.start_flag = False
         self.pause_flag = False
         self.start_point = []

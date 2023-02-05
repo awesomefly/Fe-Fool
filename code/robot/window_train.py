@@ -9,11 +9,12 @@ MODEL_PATH = ROOT + '../yolov5/runs/train'
 
 
 class TrainModelWindow:
-    def __init__(self):
-        self.window()
+    def __init__(self, root, window_flag_bit=None):
+        self.window_flag_bit = window_flag_bit
+        self.window(root)
 
-    def window(self):
-        self.root = tkinter.Tk()
+    def window(self, root):
+        self.root = root
 
         self.root.title("生成Yolo模型")
         self.root.protocol('WM_DELETE_WINDOW', self.close)
@@ -44,7 +45,6 @@ class TrainModelWindow:
         self.btn = tkinter.Button(self.root, text='开始训练模型', command=self.run)
         self.btn.grid(row=3, column=1)
 
-        self.root.mainloop()
 
     def select_path(self):
         path_ = filedialog.askopenfilename(initialdir=MODEL_PATH)
@@ -78,8 +78,12 @@ class TrainModelWindow:
         tkinter.messagebox.showinfo('提示', '模型已生成')
 
     def close(self):
+        if self.window_flag_bit is not None:
+            self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 4)
         self.root.destroy()
 
 
 if __name__ == '__main__':
-    TrainModelWindow()
+    root = tkinter.Tk()
+    TrainModelWindow(root)
+    root.mainloop()
