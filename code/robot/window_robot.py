@@ -246,19 +246,20 @@ class RobotSerialPortWindow:
         self.calcparambutton.pack()
 
         self.root.mainloop()
-        self.root.quit()
 
     def close(self):
+        try:
+            self.restoration()
+            self.server.close()
+        except:
+            pass
         self.working__flag = False
         self.thread_open_flag = False
         if self.window_flag_bit is not None:
             self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 1)
-        try:
-            self.root.destroy()
-            self.server.close()
-            self.restoration()
-        except:
-            pass
+        if self.serial.isOpen():
+            self.serialclose()
+        self.root.withdraw()  # 一次运行中多次开关此界面会造成内存泄露，但是使用destroy()会卡死GUI，只能后续再改进了
 
     def calcparam(self):
         w1 = tk.Toplevel(self.face)
