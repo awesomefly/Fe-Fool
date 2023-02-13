@@ -45,7 +45,6 @@ class TrainModelWindow:
         self.btn = tkinter.Button(self.root, text='开始训练模型', command=self.run)
         self.btn.grid(row=3, column=1)
 
-
     def select_path(self):
         path_ = filedialog.askopenfilename(initialdir=MODEL_PATH)
         if path_ == "":
@@ -63,8 +62,8 @@ class TrainModelWindow:
             device = 'cpu'
         else:
             from torch.cuda import is_available
-            if is_available() == False:
-                tkinter.messagebox.showinfo('错误', 'cuda未安装或版本出错，不可使用GPU')
+            if not is_available():
+                tkinter.messagebox.showerror('错误', 'cuda未安装或版本出错，不可使用GPU', parent=self.root)
                 return
             device = 0
 
@@ -75,7 +74,7 @@ class TrainModelWindow:
         self.root.update()
 
         train.run(weights=weights_dir, epochs=epochs, device=device, root=self.root, progressbar=progressbar)
-        tkinter.messagebox.showinfo('提示', '模型已生成')
+        self.close()
 
     def close(self):
         if self.window_flag_bit is not None:

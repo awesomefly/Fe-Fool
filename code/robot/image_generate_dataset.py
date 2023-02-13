@@ -6,6 +6,7 @@ import time
 import os
 import Augmentor
 import shutil
+from tkinter import messagebox
 
 from robot.tools import transparence_to_white, YamlHandler, copyfile, change_hand_label
 from robot import ROOT, PARAMS_YAML, IMAGE_DATA_PATH, LOG
@@ -33,6 +34,7 @@ LABELS_HAND_TRAIN = IMAGE_DATA_PATH + "hands/labels/train/"
 IMAGES_HAND_VAL = IMAGE_DATA_PATH + "hands/images/val/"
 LABELS_HAND_VAL = IMAGE_DATA_PATH + "hands/labels/val/"
 
+PER_BACKGROUND_NUM = 100
 PER_SAMPLE_NUM = 20
 
 
@@ -69,8 +71,6 @@ class YoloDataProducer(object):
                                 3: [IMAGES_OUT_PATH_TRAIN, LABELS_OUT_PATH_TRAIN],
                                 4: [IMAGES_OUT_PATH_TEST, LABELS_OUT_PATH_TEST],
                                 5: [IMAGES_OUT_PATH_VAL, LABELS_OUT_PATH_VAL], }
-        self.delete()
-        self.augmente()
 
     # 数据增广
     def augmente(self):
@@ -85,7 +85,7 @@ class YoloDataProducer(object):
         count = 0
         for file in os.listdir(BACKGROUND_INPUT_PATH):  # file 表示的是文件名
             count = count + 1
-        p.sample(count * 100)
+        p.sample(count * PER_BACKGROUND_NUM)
 
         show_progress(self.root, self.progressbar, 5)
 
@@ -110,6 +110,19 @@ class YoloDataProducer(object):
         for filename in os.listdir(self.foreground_file + "output"):
             temp_name = os.path.join(self.foreground_file + "output", filename)
             self.record_class_map(temp_name)
+
+        i = 0
+        sorted_map = dict(sorted(self.class_map.items(), key=lambda x: x[0]))
+        print(sorted_map)
+        for key in sorted_map.keys():
+
+            if key != i:
+                print(sorted_map, key, i)
+                messagebox.showerror('错误', f'数据集的序号没有按照从0开始的严格自增的规则，请修改序号为 {key} 的图片',
+                                     self.root)
+                return False
+            i += 1
+        return True
 
     def transparence_to_white_all(self):
         for filename in os.listdir(FOREGROUND_INPUT_PATH + "output"):
@@ -252,15 +265,29 @@ class YoloDataProducer(object):
 
             b_has = False
             for x1, y1, rows1, cols1, file_name1, _, _ in point_list:
-                if abs(x - x1) < (rows1 * self.overlap_factor) and abs(y - y1) < (cols1 * self.overlap_factor):
-                    b_has = True
-                    break
+                if x1 < x and y1 < y:
+                    if (x - x1) < (rows1 * self.overlap_factor) and (y - y1) < (cols1 * self.overlap_factor):
+                        b_has = True
+                        break
+                elif x1 > x and y1 < y:
+                    if (x1 - x) < (rows_f * self.overlap_factor) and (y - y1) < (cols1 * self.overlap_factor):
+                        b_has = True
+                        break
+                elif x1 < x and y1 > y:
+                    if (x - x1) < (rows1 * self.overlap_factor) and (y1 - y) < (cols_f * self.overlap_factor):
+                        b_has = True
+                        break
+                else:
+                    if (x1 - x) < (rows_f * self.overlap_factor) and (y1 - y) < (cols_f * self.overlap_factor):
+                        b_has = True
+                        break
+
             if not b_has:
                 point_list.append((x, y, rows_f, cols_f, file_name, rows_b, cols_b))
                 is_success = True
 
-            # 如果循环次数大于20，就退出循环,避免陷入死循环
-            if count_random > 20:
+            # 如果循环次数大于30，就退出循环,避免陷入死循环
+            if count_random > 30:
                 break
         return point_list
 
@@ -318,9 +345,12 @@ def show_progress(root, progressbar, add_value):
 def run(per_num, overlap_factor, max_num, is_circle, root=None, progressbar=None):
     producer = YoloDataProducer(per_num=per_num, overlap_factor=overlap_factor, max_num=max_num, is_circle=is_circle,
                                 root=root, progressbar=progressbar)
-    producer.produce()
-    producer.add_hand_data()
-    producer.write_yolo_yaml()
+    producer.delete()
+    if producer.augmente():
+        producer.produce()
+        producer.add_hand_data()
+        producer.write_yolo_yaml()
+        messagebox.showinfo('提示', '已生成数据集', parent=root)
 
 
 if __name__ == '__main__':

@@ -55,7 +55,6 @@ class YoloDataWindow:
 
         image_generate_dataset.run(per_num=per_num, overlap_factor=overlap_factor, max_num=max_num, is_circle=is_circle,
                                    root=self.root, progressbar=progressbar)
-        tkinter.messagebox.showinfo('提示', '已生成数据集')
 
     def close(self):
         self.root.destroy()

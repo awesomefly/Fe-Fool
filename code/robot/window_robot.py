@@ -276,10 +276,10 @@ class RobotSerialPortWindow:
         targetbutton = tk.Button(w1, text='移动到目标点', command=self.targetbuttoncmd)
         targetbutton.grid(row=0, column=3)
 
-        reducebutton0 = tk.Button(w1, text='1轴减10', command=self.reducebutton0cmd)
+        reducebutton0 = tk.Button(w1, text='0轴减10', command=self.reducebutton0cmd)
         reducebutton0.grid(row=1, column=0, padx=20, pady=20, sticky=('e', 'w'))
 
-        addbutton0 = tk.Button(w1, text='1轴加10', command=self.addbutton0cmd)
+        addbutton0 = tk.Button(w1, text='0轴加10', command=self.addbutton0cmd)
         addbutton0.grid(row=1, column=3, padx=20, pady=20, sticky=('e', 'w'))
 
         reducebutton1 = tk.Button(w1, text='1轴减10', command=self.reducebutton1cmd)
@@ -315,7 +315,7 @@ class RobotSerialPortWindow:
             offset = list(map(float, self.inp1.get().split(',')))
             self.robotrun(offset)
         else:
-            tk.messagebox.showinfo(title='无法发送', message='请先连接机械臂')
+            tk.messagebox.showerror(title='无法发送', message='请先连接机械臂', parent=self.root)
             pass
         pass
 
@@ -342,8 +342,8 @@ class RobotSerialPortWindow:
         self.rectext.update()
 
     def calcbuttoncmd(self):
-        if len(self.len_params) < 4:
-            tk.messagebox.showinfo(title='无法计算', message='参数过少，至少需要4个参数，但最好是6个参数')
+        if len(self.len_params) < 6:
+            tk.messagebox.showerror(title='无法计算', message='参数过少，至少需要6个参数，但最好是9个参数', parent=self.root)
             return
         self.angle_params_0 = np.array(self.angle_params_0)
         self.angle_params_1 = np.array(self.angle_params_1)
@@ -463,7 +463,7 @@ class RobotSerialPortWindow:
             time.sleep(0.1)
             self.serial.open()
         except Exception as error:
-            tk.messagebox.showinfo(title='无法连接到串口', message=error)
+            tk.messagebox.showerror(title='无法连接到串口', message=error, parent=self.root)
             return False
         else:
             if self.serial.isOpen():
@@ -543,7 +543,7 @@ class RobotSerialPortWindow:
     def remotebuttoncmd(self):
         if self.remotebutton['text'] == '开始遥控':
             if not self.serial.isOpen():
-                tk.messagebox.showinfo(title='无法遥控', message='请先连接机械臂')
+                tk.messagebox.showerror(title='无法遥控', message='请先连接机械臂', parent=self.root)
                 return
             self.root.bind("<Key>", self.func1)
             self.remotebutton['text'] = '结束遥控'
@@ -554,7 +554,7 @@ class RobotSerialPortWindow:
     def runbuttoncmd(self):
         if self.runbutton['text'] == '开始抓取':
             if not self.serial.isOpen():
-                tk.messagebox.showinfo(title='无法抓取', message='请先连接机械臂')
+                tk.messagebox.showerror(title='无法抓取', message='请先连接机械臂', parent=self.root)
                 return
             t1 = threading.Thread(target=self.working)
             t1.setDaemon(True)
@@ -579,7 +579,7 @@ class RobotSerialPortWindow:
                     angle_list = list(map(float, angle))
                     self.robotrun_angle(angle_list)
                 except:
-                    tk.messagebox.showinfo(title='无法发送', message='请正确输入命令！')
+                    tk.messagebox.showerror(title='无法发送', message='请正确输入命令！', parent=self.root)
                     return
 
             elif data.startswith('{'):
@@ -592,10 +592,10 @@ class RobotSerialPortWindow:
                     offset_list = list(map(float, offset))
                     self.robotrun(offset_list)
                 except:
-                    tk.messagebox.showinfo(title='无法发送', message='请正确输入命令！')
+                    tk.messagebox.showerror(title='无法发送', message='请正确输入命令！', parent=self.root)
                     return
         else:
-            tk.messagebox.showinfo(title='无法发送', message='请先连接机械臂')
+            tk.messagebox.showerror(title='无法发送', message='请先连接机械臂', parent=self.root)
             pass
         pass
 
