@@ -1,7 +1,7 @@
 venv/
 .idea/
-code/venv/
 code/dist/
-code/.idea/
-code/main.spec
 **/__pycache__/
+image_data/board_game/foreground_imgs/output/
+image_data/board_game/background_imgs/output/
+image_data/board_game/output_yolo/

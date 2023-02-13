@@ -130,7 +130,7 @@ class DetecterWindow(Observable):
         # 摄像头读取,ret为是否成功打开摄像头,true,false。 frame为视频的每一帧图像
         ret, frame = self.capture.read()
         if not ret:
-            tkinter.messagebox.showinfo('错误', '摄像头无数据')
+            tkinter.messagebox.showerror('错误', '摄像头无数据', parent=self.root)
         return frame
 
     def close(self):
@@ -146,13 +146,13 @@ class DetecterWindow(Observable):
             self.max_threshold_scale.grid_forget()
             self.max_threshold_label.grid_forget()
             if self.game_mode.get() == 0:
-                tkinter.messagebox.showinfo('提示', '未选择模式')
+                tkinter.messagebox.showerror('错误', '未选择模式', parent=self.root)
                 return
 
             if self.connect_robot(self.game_mode.get()):
                 self.connect_button['text'] = "返回选择其他模式"
             else:
-                tkinter.messagebox.showinfo('提示', '未开启机械臂')
+                tkinter.messagebox.showerror('错误', '未开启机械臂', parent=self.root)
         else:
             self.disconnect_robot()
             self.connect_button['text'] = '开始工作'
@@ -212,14 +212,14 @@ class DetecterWindow(Observable):
     def load_model(self):
         dir = self.path.get()
         if not dir.endswith(".pt"):
-            tkinter.messagebox.showinfo('错误', '模型错误')
+            tkinter.messagebox.showerror('错误', '模型错误', parent=self.root)
         else:
             if self.inp1.get() == 'cpu':
                 device = 'cpu'
             else:
                 from torch.cuda import is_available
                 if is_available() == False:
-                    tkinter.messagebox.showinfo('错误', 'cuda未安装或版本出错，不可使用GPU')
+                    tkinter.messagebox.showerror('错误', 'cuda未安装或版本出错，不可使用GPU', parent=self.root)
                     return
                 device = 0
             self.self_yolo = YoloDetecter(weights=dir, device=device)

@@ -225,7 +225,7 @@ class GobangRobotMaster(BoardGamesRobotMaster):
         if 'heizi' in name:
             self.our_class_list.append(data['names'].index('heizi'))
         else:
-            messagebox.showinfo('错误', '该模型未包含五子棋或种类出错，不可使用五子棋模式')
+            messagebox.showerror('错误', '该模型未包含五子棋或种类出错，不可使用五子棋模式')
 
     def restart(self):
         answer = messagebox.askokcancel('憨憨', '再来一局？请在确认前收好棋子')
@@ -353,7 +353,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
             index = index + 1
 
         if len(self.our_class_list) != 7:
-            messagebox.showinfo('错误', '该模型未包含象棋或种类出错，不可使用象棋模式')
+            messagebox.showerror('错误', '该模型未包含象棋或种类出错，不可使用象棋模式')
 
     def restart(self):
         answer = messagebox.askokcancel('憨憨', '再来一局？')

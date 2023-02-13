@@ -190,7 +190,7 @@ def get_cameras(cam_preset_num=10):
 
 
 def change_hand_label(newlabel):
-    for root, dirs, _ in os.walk(IMAGE_DATA_PATH):
+    for root, dirs, _ in os.walk(IMAGE_DATA_PATH + "hands"):
         for dir in dirs:
             path = os.path.join(root, dir)
             if dir.endswith("labels"):
@@ -215,7 +215,6 @@ def change_hand_label(newlabel):
                                     for line in SaveList:
                                         f.write(line + '\n')
                                     f.close()
-
 
 def copyfile(source_path, target_path):
     if not os.path.exists(target_path):

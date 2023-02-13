@@ -65,7 +65,7 @@ WORLD_SIZE = int(os.getenv('WORLD_SIZE', 1))
 def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictionary
     save_dir, epochs, batch_size, weights, single_cls, evolve, data, cfg, resume, noval, nosave, workers, freeze = \
         Path(opt.save_dir), opt.epochs, opt.batch_size, opt.weights, opt.single_cls, opt.evolve, opt.data, opt.cfg, \
-        opt.resume, opt.noval, opt.nosave, opt.workers, opt.freeze
+            opt.resume, opt.noval, opt.nosave, opt.workers, opt.freeze
 
     # Directories
     w = save_dir / 'weights'  # weights dir
@@ -148,6 +148,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     accumulate = max(round(nbs / batch_size), 1)  # accumulate loss before optimizing
     hyp['weight_decay'] *= batch_size * accumulate / nbs  # scale weight_decay
     LOGGER.info(f"Scaled weight_decay = {hyp['weight_decay']}")
+
+    show_progress(opt.root, opt.progressbar, 5)
 
     g0, g1, g2 = [], [], []  # optimizer parameter groups
     for v in model.modules():
@@ -320,7 +322,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             ni = i + nb * epoch  # number integrated batches (since train start)
             imgs = imgs.to(device, non_blocking=True).float() / 255  # uint8 to float32, 0-255 to 0.0-1.0
 
-            show_progress(opt.root, opt.progressbar, 95 / len(pbar) / (epochs - start_epoch))
+            show_progress(opt.root, opt.progressbar, 90 / len(pbar) / (epochs - start_epoch))
             # Warmup
             if ni <= nw:
                 xi = [0, nw]  # x interp
@@ -465,6 +467,15 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}")
 
     torch.cuda.empty_cache()
+
+    import shutil
+    from tkinter import messagebox
+    # 将data.yaml复制到相应的模型目录下
+    shutil.copyfile(opt.data, str(save_dir) + '\data.yaml')
+    if opt.root is not None:
+        messagebox.showinfo(title='提示',
+                            message=f'模型已生成，mAP*值为{round(results[3], 3)}。(该值越大越好，一般大于0.85为宜)',
+                            parent=opt.root)
     return results
 
 
@@ -644,10 +655,6 @@ def main(opt, callbacks=Callbacks()):
             # Write mutation results
             print_mutation(results, hyp.copy(), save_dir, opt.bucket)
 
-        # 将data.yaml复制到相应的模型目录下
-        import shutil
-        shutil.copyfile('opt.data', save_dir / 'data.yaml')
-
         # Plot results
         plot_evolve(evolve_csv)
         LOGGER.info(f'Hyperparameter evolution finished {opt.evolve} generations\n'
@@ -671,6 +678,4 @@ def run(**kwargs):
 
 
 if __name__ == "__main__":
-    run( epochs=5, device=0)
-    # opt = parse_opt()
-    # main(opt)
+    run(epochs=5, device=0)
