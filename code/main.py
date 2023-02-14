@@ -39,7 +39,7 @@ class MainWindow:
 
     def button_serialport(self):
         """
-        按钮触发事件，开一个子进程去运行SerialPortAssistantWindow()这个窗口（每个功能一个进程，否则会很卡）
+        按钮触发事件，开一个线程去运行SerialPortAssistantWindow()这个窗口
         并用window_flag_bit.value去标记这个窗口正在运行，防止同时开启多个SerialPortAssistantWindow()窗口
         """
         if self.window_flag_bit.value & (1 << 1) == 0:
@@ -97,7 +97,7 @@ class MainWindow:
 
     def button_train(self):
         """
-        yolo的训练无法在子进程都完成，所以直接在主进程创建窗口
+        yolo的训练无法在子线程都完成，所以直接在主线程创建窗口
         """
         if self.window_flag_bit.value & (1 << 4) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 4)
