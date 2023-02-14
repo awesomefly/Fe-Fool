@@ -170,9 +170,9 @@ class DetecterWindow(Observable):
         if self.robot_master.connect_robot() == 0:  # 连接成功
             self.connect_flag = True
 
-            self.radio_button_gobang.grid_remove()
-            self.radio_button_chess.grid_remove()
-            self.radio_button_grab.grid_remove()
+            self.radio_button_gobang.grid_forget()
+            self.radio_button_chess.grid_forget()
+            self.radio_button_grab.grid_forget()
 
             # 注册发布话题
             self.register(self.robot_master, "yolo_res")
@@ -186,9 +186,9 @@ class DetecterWindow(Observable):
         self.unregister(self.robot_master, "safety")
         self.connect_flag = False
         self.robot_master.close()
-        self.radio_button_gobang.grid()
-        self.radio_button_chess.grid()
-        self.radio_button_grab.grid()
+        self.radio_button_gobang.grid(row=3, column=0)
+        self.radio_button_chess.grid(row=3, column=1)
+        self.radio_button_grab.grid(row=3, column=2)
 
     def start_detect_cmd(self):
         self.detect_button.grid_forget()

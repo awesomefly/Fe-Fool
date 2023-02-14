@@ -97,7 +97,7 @@ class YoloDataProducer(object):
         p.random_color(probability=0.3, min_factor=0.9, max_factor=1.1)
         p.random_contrast(probability=0.3, min_factor=0.9, max_factor=1.1)
         p.rotate_random_90(probability=0.5)
-        p.zoom(probability=0.5, min_factor=0.9, max_factor=1.1)
+        p.zoom(probability=0.5, min_factor=0.8, max_factor=1.2)
         count = 0
         for file in os.listdir(FOREGROUND_INPUT_PATH):  # file 表示的是文件名
             count = count + 1
@@ -115,7 +115,6 @@ class YoloDataProducer(object):
         sorted_map = dict(sorted(self.class_map.items(), key=lambda x: x[0]))
         print(sorted_map)
         for key in sorted_map.keys():
-
             if key != i:
                 print(sorted_map, key, i)
                 messagebox.showerror('错误', f'数据集的序号没有按照从0开始的严格自增的规则，请修改序号为 {key} 的图片',

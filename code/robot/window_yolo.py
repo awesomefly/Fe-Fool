@@ -55,6 +55,7 @@ class YoloDataWindow:
 
         image_generate_dataset.run(per_num=per_num, overlap_factor=overlap_factor, max_num=max_num, is_circle=is_circle,
                                    root=self.root, progressbar=progressbar)
+        self.close()
 
     def close(self):
         self.root.destroy()
