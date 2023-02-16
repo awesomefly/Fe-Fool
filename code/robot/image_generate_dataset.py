@@ -139,18 +139,25 @@ class YoloDataProducer(object):
             shutil.rmtree(IMAGES_OUT_PATH_VAL)
         if os.path.exists(LABELS_OUT_PATH_VAL):
             shutil.rmtree(LABELS_OUT_PATH_VAL)
+        show_progress(self.root, self.progressbar, 2.5)
+
         if os.path.exists(IMAGES_OUT_PATH_TEST):
             shutil.rmtree(IMAGES_OUT_PATH_TEST)
         if os.path.exists(LABELS_OUT_PATH_TEST):
             shutil.rmtree(LABELS_OUT_PATH_TEST)
+        show_progress(self.root, self.progressbar, 2.5)
+
         if os.path.exists(IMAGES_OUT_PATH_TRAIN):
             shutil.rmtree(IMAGES_OUT_PATH_TRAIN)
         if os.path.exists(LABELS_OUT_PATH_TRAIN):
             shutil.rmtree(LABELS_OUT_PATH_TRAIN)
+        show_progress(self.root, self.progressbar, 2.5)
+
         if os.path.exists(BACKGROUND_INPUT_PATH + "output"):
             shutil.rmtree(BACKGROUND_INPUT_PATH + "output")
         if os.path.exists(FOREGROUND_INPUT_PATH + "output"):
             shutil.rmtree(FOREGROUND_INPUT_PATH + "output")
+        show_progress(self.root, self.progressbar, 2.5)
 
         os.makedirs(IMAGES_OUT_PATH_VAL)
         os.makedirs(LABELS_OUT_PATH_VAL)
@@ -171,7 +178,7 @@ class YoloDataProducer(object):
                 img_background_new = img_background.copy()
                 self.produce_single(img_background_new)
             LOG.debug(f"已生成背景为  {background_name}  的数据")
-            show_progress(self.root, self.progressbar, 80 / len(self.background_list))
+            show_progress(self.root, self.progressbar, 70 / len(self.background_list))
 
     # 写yolo的yaml文件
     def write_yolo_yaml(self):
