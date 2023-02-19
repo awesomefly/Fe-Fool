@@ -1,6 +1,6 @@
 venv/
 .idea/
-code/dist/
+dist/
 **/__pycache__/
 image_data/board_game/foreground_imgs/output/
 image_data/board_game/background_imgs/output/
