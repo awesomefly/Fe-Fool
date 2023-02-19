@@ -31,7 +31,7 @@ class RobotSerialPortWindow:
     def __init__(self, window_flag_bit=None):
         self.serial = serial.Serial()
         self.device = None
-        self.baudrate = 9600
+        self.baudrate = 115200
         self.encoding = "utf-8"
         self.recthread = None
         self.connecting = False
@@ -177,7 +177,7 @@ class RobotSerialPortWindow:
         self.baudrateselect['value'] = [1382400, 921600, 460800, 256000, 230400, \
                                         128000, 115200, 76800, 57600, 43000, 38400, 19200, 14400, \
                                         9600, 4800, 2400, 1200]
-        self.baudrateselect.current(13)
+        self.baudrateselect.current(6)
         self.baudrateselect.pack()
         # cal bit
         spacelabel = tk.Label(optionframeleft, width=5, height=1)
@@ -264,17 +264,20 @@ class RobotSerialPortWindow:
     def calcparam(self):
         w1 = tk.Toplevel(self.face)
         w1.title("机械臂内参计算")
-        w1.geometry("350x400")
+        w1.geometry("420x400")
 
         label1 = tk.Label(w1, text='目标点:')
         label1.grid(row=0, column=0)
         inp1 = tk.Entry(w1)
-        inp1.insert(0, '150,0,0')
+        inp1.insert(0, '120,0,5')
         inp1.grid(row=0, column=1)
         self.inp1 = inp1
 
         targetbutton = tk.Button(w1, text='移动到目标点', command=self.targetbuttoncmd)
-        targetbutton.grid(row=0, column=3)
+        targetbutton.grid(row=0, column=2)
+
+        restorationbutton = tk.Button(w1, text='复位', command=self.restoration)
+        restorationbutton.grid(row=0, column=3)
 
         reducebutton0 = tk.Button(w1, text='0轴减10', command=self.reducebutton0cmd)
         reducebutton0.grid(row=1, column=0, padx=20, pady=20, sticky=('e', 'w'))
