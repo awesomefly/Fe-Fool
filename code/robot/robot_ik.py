@@ -2,13 +2,14 @@
 from math import cos, sin, sqrt, atan2, degrees
 from robot import LOG
 
+
 def inverse_kinematics(x, y, z):
     l1 = 148  # 连杆1长度
     l2 = 160  # 连杆2长度
     el = 56  # 水平误差   52
     eh = 35  # 垂直误差
     distance = sqrt(x ** 2 + y ** 2 + z ** 2)
-    if distance > (l1 + l2 + el):
+    if distance > (l1 + l2 + el - 2):
         LOG.error("机械臂够不着的位置")
         return False, None, None, None
 
@@ -41,7 +42,7 @@ def inverse_kinematics(x, y, z):
     deg_j3 = degrees(j3) - 90 + deg_j2
 
     LOG.debug("运动学逆解结果：j1: {} ,j2: {} ,j3: {} ".format(deg_j1, deg_j2, deg_j3))
-    if deg_j1 > 135 or deg_j1 < -135 or deg_j2 > 100 or deg_j2 < -60 or deg_j3 > 135 or deg_j3 < 20:
+    if deg_j1 > 135 or deg_j1 < -135 or deg_j2 > 110 or deg_j2 < -70 or deg_j3 > 135 or deg_j3 < 0:
         LOG.error("逆解结果超出约束")
         return False, None, None, None
     # LOG.info("运动学正解结果：x:%f,y:%f,z:%f\r\n" % (x1, y1, z1))

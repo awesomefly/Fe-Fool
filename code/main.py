@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from tkinter import Tk, Button,Toplevel
-from multiprocessing import Value
+from multiprocessing import Value,freeze_support
 import threading
 
 from robot.window_robot import RobotSerialPortWindow
@@ -106,4 +106,5 @@ class MainWindow:
 
 
 if __name__ == '__main__':
+    freeze_support()
     MainWindow()
