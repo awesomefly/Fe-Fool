@@ -8,7 +8,7 @@ import Augmentor
 import shutil
 from tkinter import messagebox
 
-from robot.tools import transparence_to_white, YamlHandler, copyfile, change_hand_label
+from robot.tools import transparence_to_white,random_brightness,add_salt_noise, YamlHandler, copyfile, change_hand_label
 from robot import ROOT, PARAMS_YAML, IMAGE_DATA_PATH, LOG
 
 DATA_NAME = YamlHandler(PARAMS_YAML).read_yaml()['data_name']
@@ -34,7 +34,7 @@ LABELS_HAND_TRAIN = IMAGE_DATA_PATH + "hands/labels/train/"
 IMAGES_HAND_VAL = IMAGE_DATA_PATH + "hands/images/val/"
 LABELS_HAND_VAL = IMAGE_DATA_PATH + "hands/labels/val/"
 
-PER_BACKGROUND_NUM = 100
+PER_BACKGROUND_NUM = 188
 PER_SAMPLE_NUM = 20
 
 
@@ -75,33 +75,32 @@ class YoloDataProducer(object):
     # 数据增广
     def augmente(self):
         p = Augmentor.Pipeline(BACKGROUND_INPUT_PATH)
-        p.rotate(probability=0.5, max_left_rotation=3, max_right_rotation=3)
-        p.shear(probability=0.25, max_shear_left=3, max_shear_right=3)
+        p.rotate(probability=0.5, max_left_rotation=10, max_right_rotation=10)
+        p.shear(probability=0.25, max_shear_left=5, max_shear_right=5)
         p.random_brightness(probability=0.9, min_factor=0.7, max_factor=1.3)
         p.random_color(probability=0.9, min_factor=0.7, max_factor=1.3)
-        p.random_contrast(probability=0.9, min_factor=1, max_factor=1.3)
-        p.scale(probability=0.2, scale_factor=1.01)
-        p.rotate_random_90(probability=0.5)
-        count = 0
-        for file in os.listdir(BACKGROUND_INPUT_PATH):  # file 表示的是文件名
-            count = count + 1
-        p.sample(count * PER_BACKGROUND_NUM)
+        p.random_contrast(probability=0.9, min_factor=0.7, max_factor=1.3)
+        p.zoom(probability=0.8, min_factor=0.7, max_factor=1)
+        p.scale(probability=0.2, scale_factor=1.1)
+        p.scale(probability=0.2, scale_factor=1.2)
+        p.scale(probability=0.2, scale_factor=1.3)
+        p.rotate_random_90(probability=0.75)
+        p.sample(int(len(os.listdir(BACKGROUND_INPUT_PATH)) * PER_BACKGROUND_NUM))
 
         show_progress(self.root, self.progressbar, 5)
 
         p = Augmentor.Pipeline(FOREGROUND_INPUT_PATH)
         if self.is_circle:
             p.rotate_without_crop(probability=0.6, max_left_rotation=45, max_right_rotation=45)
-        p.shear(probability=0.3, max_shear_left=2, max_shear_right=2)
-        # p.random_brightness(probability=0.9, min_factor=0.6, max_factor=1.3)
-        p.random_color(probability=0.3, min_factor=0.9, max_factor=1.1)
-        p.random_contrast(probability=0.3, min_factor=0.9, max_factor=1.1)
-        p.rotate_random_90(probability=0.5)
-        p.zoom(probability=0.5, min_factor=0.8, max_factor=1.2)
-        count = 0
-        for file in os.listdir(FOREGROUND_INPUT_PATH):  # file 表示的是文件名
-            count = count + 1
-        p.sample(int(count * PER_SAMPLE_NUM))
+        p.shear(probability=0.3, max_shear_left=3, max_shear_right=3)
+        p.random_color(probability=0.5, min_factor=0.7, max_factor=1.3)
+        p.random_contrast(probability=0.5, min_factor=0.3, max_factor=1.3)
+        p.rotate_random_90(probability=0.75)
+        p.zoom(probability=0.8, min_factor=0.7, max_factor=1)
+        p.scale(probability=0.2, scale_factor=1.1)
+        p.scale(probability=0.2, scale_factor=1.2)
+        p.scale(probability=0.2, scale_factor=1.3)
+        p.sample(int(len(os.listdir(FOREGROUND_INPUT_PATH)) * PER_SAMPLE_NUM))
 
         show_progress(self.root, self.progressbar, 5)
 
@@ -183,7 +182,8 @@ class YoloDataProducer(object):
     # 写yolo的yaml文件
     def write_yolo_yaml(self):
         if len(self.class_map) > 0:
-            file_path = ROOT + "../yolov5/data/self_data.yaml"
+            file_path = ROOT + "../yolov5/data/self_data.yaml"  # code
+            # file_path = ROOT + "yolov5/data/self_data.yaml"  # exe
             data = YamlHandler(file_path).read_yaml()
             LOG.debug(f"yaml修改前数据：{data}")
             # 将data数据写入yaml
@@ -212,6 +212,7 @@ class YoloDataProducer(object):
             img_foreground = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
             try:
                 img_foreground = transparence_to_white(img_foreground)
+                img_foreground = add_salt_noise(img_foreground)
             except:
                 pass
             # 将前景转化为二值化图mask
@@ -249,7 +250,7 @@ class YoloDataProducer(object):
 
         # 训练集:测试集:验证集 = 6:2:2
         random_file_num = random.randint(1, 5)
-        # img_background = cv2.blur(img_background, (5, 5))
+        img_background = random_brightness(img_background)
         cv2.imwrite(self.num_to_file_map[random_file_num][0] + save_name + ".png", img_background)
         self.to_yolo(self.num_to_file_map[random_file_num][1] + save_name + ".txt", random_point_list)
 

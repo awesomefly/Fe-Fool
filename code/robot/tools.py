@@ -4,7 +4,8 @@ from random import choice, randint
 from playsound import playsound
 from math import cos, sin
 import numpy as np
-from cv2 import VideoCapture, CAP_DSHOW
+from cv2 import VideoCapture, CAP_DSHOW,cvtColor,COLOR_BGR2RGB,COLOR_RGB2BGR
+from PIL import ImageEnhance,Image
 import yaml
 from shutil import copy
 from scipy.optimize import leastsq
@@ -149,32 +150,41 @@ def get_name_by_class(_class):
 
 # 修改透明背景为白色
 def transparence_to_white(img):
-    rand_threshold = randint(30, 80)
+    rand_threshold = randint(20, 70)
     img_new = img[:, :, 0:-1]
     transparence = img[:, :, -1]
     img_new[transparence < rand_threshold] = [255, 255, 255]
     return img_new
 
+def random_brightness(image, min_factor=0.7, max_factor=1.3):
+    image = Image.fromarray(cvtColor(image, COLOR_BGR2RGB))
+    factor = np.random.uniform(min_factor, max_factor)
+    image_enhancer_brightness = ImageEnhance.Brightness(image)
+    image = image_enhancer_brightness.enhance(factor)
+    image = cvtColor(np.asarray(image), COLOR_RGB2BGR)
+    return image
 
 def add_salt_noise(img):
-    # 指定信噪比
-    SNR = 0.998
-    # 获取总共像素个数
-    size = img.size
-    noiseSize = int(size * (1 - SNR))
-    noiseSize = randint(0, noiseSize)
-    # 对这些点加噪声
-    for k in range(0, noiseSize):
-        # 随机获取 某个点
-        xi = int(np.random.uniform(0, img.shape[1]))
-        xj = int(np.random.uniform(0, img.shape[0]))
-        # 增加噪声
-        if img.ndim == 2 or img.ndim == 3:
-            img[xj, xi] = randint(10, 20)
+    # # 指定信噪比
+    # SNR = 0.999
+    # # 获取总共像素个数
+    # size = img.size
+    # noiseSize = int(size * (1 - SNR))
+    # 5分之一的概率生成1到5个噪点
+    if randint(1, 5) == 4:
+        noiseSize = randint(1, 5)
+        # 对这些点加噪声
+        for k in range(0, noiseSize):
+            # 随机获取 某个点
+            xi = int(np.random.uniform(0, img.shape[1]))
+            xj = int(np.random.uniform(0, img.shape[0]))
+            # 增加噪声
+            if img.ndim == 2 or img.ndim == 3:
+                img[xj, xi] = randint(0, 255)
     return img
 
 
-def get_cameras(cam_preset_num=10):
+def get_cameras(cam_preset_num=4):
     cnt = 0
     cameras_list = []
     for device in range(0, cam_preset_num):

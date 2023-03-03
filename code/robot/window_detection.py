@@ -28,12 +28,13 @@ def yolo_to_pixel(yolo_list, rows_b, cols_b):
 
 def tk_show_img(panel, img):
     # img = cv2.pyrDown(img)
-    cv2image = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)  # 转换颜色从BGR到RGBA
-    current_image = Image.fromarray(cv2image)  # 将图像转换成Image对象
-    imgtk = ImageTk.PhotoImage(image=current_image)
-    panel.pyimage1 = imgtk
-    panel.config(image=imgtk)
-    panel.update()
+    if img is not None:
+        cv2image = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)  # 转换颜色从BGR到RGBA
+        current_image = Image.fromarray(cv2image)  # 将图像转换成Image对象
+        imgtk = ImageTk.PhotoImage(image=current_image)
+        panel.pyimage1 = imgtk
+        panel.config(image=imgtk)
+        panel.update()
 
 
 class DetecterWindow(Observable):

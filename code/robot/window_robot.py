@@ -16,7 +16,11 @@ from math import sqrt
 
 from robot.tools import YamlHandler, CurveFitting
 from robot.robot_ik import inverse_kinematics
-from robot import SERVER_ADDR, ROOT, LOG
+from robot import SERVER_ADDR, ROOT, LOG, PARAMS_YAML
+
+PARAMS = YamlHandler(PARAMS_YAML).read_yaml()  # 读取params.yaml文件中配置的参数
+TEMP = PARAMS['pick_point']
+PICK_POINT_GOBANG = [TEMP[0], TEMP[1], TEMP[2]]  # 取五子棋的固定点
 
 ROBOT_PARAMS = '/robot_params.yaml'
 
@@ -55,7 +59,6 @@ class RobotSerialPortWindow:
 
         self.window_flag_bit = window_flag_bit
         self.window()
-
 
     def window(self):
         self.root = tk.Tk()
@@ -222,9 +225,9 @@ class RobotSerialPortWindow:
         # remote
         spacelabel = tk.Label(optionframebottom, width=5, height=1)
         spacelabel.pack()
-        self.remotebutton = tk.Button(optionframebottom, text='开始遥控', \
-                                      width=20, height=1, command=self.remotebuttoncmd)
-        self.remotebutton.pack()
+        self.locatebutton = tk.Button(optionframebottom, text='棋盘定位', \
+                                      width=20, height=1, command=self.locatebuttoncmd)
+        self.locatebutton.pack()
 
         spacelabel = tk.Label(optionframebottom, width=5, height=1)
         spacelabel.pack()
@@ -262,60 +265,73 @@ class RobotSerialPortWindow:
         self.root.withdraw()  # 一次运行中多次开关此界面会造成内存泄露，但是使用destroy()会卡死GUI，只能后续再改进了
 
     def calcparam(self):
-        w1 = tk.Toplevel(self.face)
-        w1.title("机械臂内参计算")
-        w1.geometry("420x400")
+        if self.calcparambutton['text'] == '计算内参':
+            if not self.serial.isOpen():
+                tk.messagebox.showerror(title='错误', message='请先连接机械臂', parent=self.root)
+                return
 
-        label1 = tk.Label(w1, text='目标点:')
-        label1.grid(row=0, column=0)
-        inp1 = tk.Entry(w1)
-        inp1.insert(0, '120,0,5')
-        inp1.grid(row=0, column=1)
-        self.inp1 = inp1
+            self.calcparambutton['text'] = '结束计算'
+            self.paramwindow = tk.Toplevel(self.face)
+            self.paramwindow.title("机械臂内参计算")
+            self.paramwindow.geometry("420x400")
+            self.paramwindow.protocol('WM_DELETE_WINDOW', self.close_paramwindow)
 
-        targetbutton = tk.Button(w1, text='移动到目标点', command=self.targetbuttoncmd)
-        targetbutton.grid(row=0, column=2)
+            label = tk.Label(self.paramwindow, text='目标点:')
+            label.grid(row=0, column=0)
+            inp = tk.Entry(self.paramwindow)
+            inp.insert(0, '120,0,5')
+            inp.grid(row=0, column=1)
+            self.inpparam = inp
 
-        restorationbutton = tk.Button(w1, text='复位', command=self.restoration)
-        restorationbutton.grid(row=0, column=3)
+            targetbutton = tk.Button(self.paramwindow, text='移动到目标点', command=self.targetbuttoncmd)
+            targetbutton.grid(row=0, column=2)
 
-        reducebutton0 = tk.Button(w1, text='0轴减10', command=self.reducebutton0cmd)
-        reducebutton0.grid(row=1, column=0, padx=20, pady=20, sticky=('e', 'w'))
+            restorationbutton = tk.Button(self.paramwindow, text='复位', command=self.restoration)
+            restorationbutton.grid(row=0, column=3)
 
-        addbutton0 = tk.Button(w1, text='0轴加10', command=self.addbutton0cmd)
-        addbutton0.grid(row=1, column=3, padx=20, pady=20, sticky=('e', 'w'))
+            reducebutton0 = tk.Button(self.paramwindow, text='0轴减10', command=self.reducebutton0cmd)
+            reducebutton0.grid(row=1, column=0, padx=20, pady=20, sticky=('e', 'w'))
 
-        reducebutton1 = tk.Button(w1, text='1轴减10', command=self.reducebutton1cmd)
-        reducebutton1.grid(row=2, column=0, padx=20, pady=20, sticky=('e', 'w'))
+            addbutton0 = tk.Button(self.paramwindow, text='0轴加10', command=self.addbutton0cmd)
+            addbutton0.grid(row=1, column=3, padx=20, pady=20, sticky=('e', 'w'))
 
-        addbutton1 = tk.Button(w1, text='1轴加10', command=self.addbutton1cmd)
-        addbutton1.grid(row=2, column=3, padx=20, pady=20, sticky=('e', 'w'))
+            reducebutton1 = tk.Button(self.paramwindow, text='1轴减10', command=self.reducebutton1cmd)
+            reducebutton1.grid(row=2, column=0, padx=20, pady=20, sticky=('e', 'w'))
 
-        reducebutton2 = tk.Button(w1, text='2轴减10', command=self.reducebutton2cmd)
-        reducebutton2.grid(row=3, column=0, padx=20, pady=20, sticky=('e', 'w'))
+            addbutton1 = tk.Button(self.paramwindow, text='1轴加10', command=self.addbutton1cmd)
+            addbutton1.grid(row=2, column=3, padx=20, pady=20, sticky=('e', 'w'))
 
-        addbutton2 = tk.Button(w1, text='2轴加10', command=self.addbutton2cmd)
-        addbutton2.grid(row=3, column=3, padx=20, pady=20, sticky=('e', 'w'))
+            reducebutton2 = tk.Button(self.paramwindow, text='2轴减10', command=self.reducebutton2cmd)
+            reducebutton2.grid(row=3, column=0, padx=20, pady=20, sticky=('e', 'w'))
 
-        addparabutton = tk.Button(w1, text='添加数据', command=self.addparabuttoncmd)
-        addparabutton.grid(row=4, column=1, ipadx=20, ipady=10, padx=20, pady=20, sticky=('e', 'w'))
+            addbutton2 = tk.Button(self.paramwindow, text='2轴加10', command=self.addbutton2cmd)
+            addbutton2.grid(row=3, column=3, padx=20, pady=20, sticky=('e', 'w'))
 
-        calcbutton = tk.Button(w1, text='计算结果', command=self.calcbuttoncmd)
-        calcbutton.grid(row=5, column=1, ipadx=20, ipady=10, padx=20, pady=20, sticky=('e', 'w'))
+            addparabutton = tk.Button(self.paramwindow, text='添加数据', command=self.addparabuttoncmd)
+            addparabutton.grid(row=4, column=1, ipadx=20, ipady=10, padx=20, pady=20, sticky=('e', 'w'))
 
-        self.angle_params_0 = []
-        self.angle_params_1 = []
-        self.angle_params_2 = []
+            calcbutton = tk.Button(self.paramwindow, text='计算结果', command=self.calcbuttoncmd)
+            calcbutton.grid(row=5, column=1, ipadx=20, ipady=10, padx=20, pady=20, sticky=('e', 'w'))
 
-        self.len_params = []
+            self.angle_params_0 = []
+            self.angle_params_1 = []
+            self.angle_params_2 = []
 
-        self.engine_params_0 = []
-        self.engine_params_1 = []
-        self.engine_params_2 = []
+            self.len_params = []
+
+            self.engine_params_0 = []
+            self.engine_params_1 = []
+            self.engine_params_2 = []
+        else:
+            self.close_paramwindow()
+
+    def close_paramwindow(self):
+        self.paramwindow.destroy()
+        self.calcparambutton['text'] = '计算内参'
 
     def targetbuttoncmd(self):
         if self.connecting:
-            offset = list(map(float, self.inp1.get().split(',')))
+            offset = list(map(float, self.inpparam.get().split(',')))
             self.robotrun(offset)
         else:
             tk.messagebox.showerror(title='无法发送', message='请先连接机械臂', parent=self.root)
@@ -323,7 +339,7 @@ class RobotSerialPortWindow:
         pass
 
     def addparabuttoncmd(self):
-        offset = list(map(float, self.inp1.get().split(',')))
+        offset = list(map(float, self.inpparam.get().split(',')))
         hasik, angle0, angle1, angle2 = inverse_kinematics(offset[0], offset[1], offset[2])
         if not hasik:
             return
@@ -346,7 +362,8 @@ class RobotSerialPortWindow:
 
     def calcbuttoncmd(self):
         if len(self.len_params) < 6:
-            tk.messagebox.showerror(title='无法计算', message='参数过少，至少需要6个参数，但最好是9个参数', parent=self.root)
+            tk.messagebox.showerror(title='无法计算', message='参数过少，至少需要6个参数，但最好是9个参数',
+                                    parent=self.root)
             return
         self.angle_params_0 = np.array(self.angle_params_0)
         self.angle_params_1 = np.array(self.angle_params_1)
@@ -543,16 +560,107 @@ class RobotSerialPortWindow:
             pass
         pass
 
-    def remotebuttoncmd(self):
-        if self.remotebutton['text'] == '开始遥控':
+    def locatebuttoncmd(self):
+        if self.locatebutton['text'] == '棋盘定位':
             if not self.serial.isOpen():
-                tk.messagebox.showerror(title='无法遥控', message='请先连接机械臂', parent=self.root)
+                tk.messagebox.showerror(title='错误', message='请先连接机械臂', parent=self.root)
                 return
-            self.root.bind("<Key>", self.func1)
-            self.remotebutton['text'] = '结束遥控'
+
+            self.locatebutton['text'] = '结束定位'
+
+            self.locatewindow = tk.Toplevel(self.face)
+            self.locatewindow.title("棋盘定位")
+            self.locatewindow.geometry("650x500")
+            self.locatewindow.protocol('WM_DELETE_WINDOW', self.close_locatewindow)
+
+            chesslocatebutton = tk.Button(self.locatewindow, text='象棋棋盘定位', command=self.chesslocatebuttoncmd)
+            chesslocatebutton.grid(row=0, column=1, ipadx=40,
+                                   ipady=15, padx=20, pady=20,
+                                   sticky=('e', 'w'))
+
+            gobanglocatebutton = tk.Button(self.locatewindow, text='五子棋棋盘定位', command=self.gobanglocatebuttoncmd)
+            gobanglocatebutton.grid(row=1, column=1, ipadx=40,
+                                    ipady=15, padx=20, pady=20,
+                                    sticky=('e', 'w'))
+
+            a4locatebutton = tk.Button(self.locatewindow, text='A4工作台定位', command=self.a4locatebuttoncmd)
+            a4locatebutton.grid(row=2, column=1, ipadx=40,
+                                ipady=15, padx=20, pady=20,
+                                sticky=('e', 'w'))
+
+            label = tk.Label(self.locatewindow, text='自定义工作台长度:')
+            label.grid(row=3, column=0, ipadx=20,
+                       ipady=15, padx=20, pady=20,
+                       sticky=('e', 'w'))
+            inp = tk.Entry(self.locatewindow)
+            inp.insert(0, '300')
+            inp.grid(row=3, column=1, ipadx=20,
+                     ipady=15, padx=20, pady=20,
+                     sticky=('e', 'w'))
+            self.inplocate = inp
+
+            customlocatebutton = tk.Button(self.locatewindow, text='自定义工作台定位',
+                                           command=self.customlocatebuttoncmd)
+            customlocatebutton.grid(row=3, column=2, ipadx=20,
+                                    ipady=15, padx=20, pady=20,
+                                    sticky=('e', 'w'))
+
+            fetchlocatebutton = tk.Button(self.locatewindow, text='取子点定位', command=self.fetchlocatebuttoncmd)
+            fetchlocatebutton.grid(row=4, column=1, ipadx=40,
+                                   ipady=15, padx=20, pady=20,
+                                   sticky=('e', 'w'))
+
         else:
-            self.root.unbind("<Key>")
-            self.remotebutton['text'] = '开始遥控'
+            self.close_locatewindow()
+
+    def close_locatewindow(self):
+        self.locatewindow.destroy()
+        self.locatebutton['text'] = '棋盘定位'
+
+    def customlocatebuttoncmd(self):
+        try:
+            length = int(self.inplocate.get()) / 2
+            if length > 180:
+                tk.messagebox.showerror(title='输入错误', message='输入错误或尺寸超出机械臂约束',
+                                        parent=self.locatewindow)
+                return
+            self.location(100, length)
+        except:
+            tk.messagebox.showerror(title='输入错误', message='输入错误或尺寸超出机械臂约束', parent=self.locatewindow)
+
+    def chesslocatebuttoncmd(self):
+        # 120为棋盘与机械臂原点x轴的距离，100为棋盘的长度/2（y轴方向）
+        self.location(120, 100)
+
+    def gobanglocatebuttoncmd(self):
+        # 75为棋盘与机械臂原点x轴的距离，145为棋盘的长度/2（y轴方向）
+        self.location(75, 145)
+
+    def a4locatebuttoncmd(self):
+        # 100为A4纸与机械臂原点x轴的距离，105为A4纸的长度/2（y轴方向）
+        self.location(100, 105)
+
+    def location(self, distance, length):
+        self.robotrun([distance, length, 10])
+        time.sleep(1)
+        self.robotrun([distance, length, -5])
+        time.sleep(1)
+        self.robotrun([distance, length, 50])
+        self.robotrun([distance, -length, 50])
+        self.robotrun([distance, -length, 10])
+        time.sleep(1)
+        self.robotrun([distance, -length, -5])
+        time.sleep(1)
+        self.robotrun([distance, -length, 50])
+        self.restoration()
+
+    def fetchlocatebuttoncmd(self):
+        self.robotrun([PICK_POINT_GOBANG[0], PICK_POINT_GOBANG[1], PICK_POINT_GOBANG[2] + 10])
+        time.sleep(1)
+        self.robotrun([PICK_POINT_GOBANG[0], PICK_POINT_GOBANG[1], PICK_POINT_GOBANG[2] - 5])
+        time.sleep(1)
+        self.robotrun([PICK_POINT_GOBANG[0], PICK_POINT_GOBANG[1], PICK_POINT_GOBANG[2] + 50])
+        self.restoration()
 
     def runbuttoncmd(self):
         if self.runbutton['text'] == '开始抓取':
@@ -582,7 +690,7 @@ class RobotSerialPortWindow:
                     angle_list = list(map(float, angle))
                     self.robotrun_angle(angle_list)
                 except:
-                    tk.messagebox.showerror(title='无法发送', message='请正确输入命令！', parent=self.root)
+                    tk.messagebox.showerror(title='无法发送', message='输入命令无效或超出约束！', parent=self.root)
                     return
 
             elif data.startswith('{'):
@@ -595,28 +703,12 @@ class RobotSerialPortWindow:
                     offset_list = list(map(float, offset))
                     self.robotrun(offset_list)
                 except:
-                    tk.messagebox.showerror(title='无法发送', message='请正确输入命令！', parent=self.root)
+                    tk.messagebox.showerror(title='无法发送', message='输入命令无效或超出约束！', parent=self.root)
                     return
         else:
             tk.messagebox.showerror(title='无法发送', message='请先连接机械臂', parent=self.root)
             pass
         pass
-
-    # 键盘事件
-    def func1(self, event):
-        LOG.debug("事件触发键盘输入:{0},对应的ASCII码:{1}".format(event.keysym, event.keycode))
-        if event.keysym == "Up":
-            self.engine_0 = self.engine_0 + 50
-            if self.engine_0 > 2500:
-                self.engine_0 = 2500
-            data = "#000P" + str(self.engine_0) + "T0100!\n"
-            self.serial.write(data[0:-1].encode(self.encoding))
-        elif event.keysym == "Down":
-            self.engine_0 = self.engine_0 - 50
-            if self.engine_0 < 500:
-                self.engine_0 = 500
-            data = "#000P" + str(self.engine_0) + "T0100!\n"
-            self.serial.write(data[0:-1].encode(self.encoding))
 
     ############################ 机械臂控制函数 ##################################
     # 复位
@@ -633,14 +725,20 @@ class RobotSerialPortWindow:
         data = "{#004P1000T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
         time.sleep(0.2)
-
-        data = "{#003P2000T1000!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.8)
+        time.sleep(0.2)
+
+        data = "{#003P2000T0200!}\n"
+        self.serial.write(data[0:-1].encode(self.encoding))
+        time.sleep(0.5)
+        self.serial.write(data[0:-1].encode(self.encoding))
+        time.sleep(0.5)
 
         data = "{#003P1000T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.1)
+        time.sleep(0.2)
+        self.serial.write(data[0:-1].encode(self.encoding))
+        time.sleep(0.2)
 
     # 气泵放
     def suckdown(self):
@@ -648,19 +746,27 @@ class RobotSerialPortWindow:
             return
         data = "{#004P2200T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.3)
+        time.sleep(0.2)
+        self.serial.write(data[0:-1].encode(self.encoding))
+        time.sleep(0.2)
+
         data = "{#004P1500T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.3)
+        time.sleep(0.2)
+        self.serial.write(data[0:-1].encode(self.encoding))
+        time.sleep(0.2)
 
     # 机械臂运动
     def robotrun(self, offset, t=0):
         hasik, angle0, angle1, angle2 = inverse_kinematics(offset[0], offset[1], offset[2])
-        offset_len = sqrt(offset[0] ** 2 + offset[1] ** 2 + offset[2] ** 2)
-        angle0 = angle0 + offset_len * self.len_calibration_0
-        angle1 = angle1 + offset_len * self.len_calibration_1
-        angle2 = angle2 + offset_len * self.len_calibration_2
         if hasik:
+            offset_len = sqrt(offset[0] ** 2 + offset[1] ** 2 + offset[2] ** 2)
+            angle0 = angle0 + offset_len * self.len_calibration_0
+            angle1 = angle1 + offset_len * self.len_calibration_1
+            angle2 = angle2 + offset_len * self.len_calibration_2
+            # 机械臂间隙太大，2轴超过90度需要补偿一些
+            if angle2 > 88:
+                angle2 = angle2 + 3
             LOG.debug(f"机械臂角度 angle0:{angle0}, angle1:{angle1}, angle2:{angle2}")
             if t == 0:
                 delta = np.array(self.last_angle_list) - np.array([angle0, angle1, angle2])
@@ -668,6 +774,8 @@ class RobotSerialPortWindow:
                 t = int(max(delta) * self.per_angle_time)
                 if t > 4000:
                     t = 4000
+                if t < 500:
+                    t = 500
             self.sendmsg(engine0=INIT_ENGINE_0 - int(angle0 * 7.28), engine1=INIT_ENGINE_1 - int(angle1 * 7.28),
                          engine2=INIT_ENGINE_2 + int(angle2 * 7.28),
                          run_time=t)
@@ -690,7 +798,7 @@ class RobotSerialPortWindow:
         self.last_angle_list = [angle0, angle1, angle2]
 
     def working(self):
-        self.robotrun([110, 165, 40])  # 随便设定的初始位置，不挡住相机就行
+        self.robotrun([0, 195, 40])  # 随便设定的初始位置，不挡住相机就行
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 初始化
         self.server.bind(SERVER_ADDR)  # 绑定ip和端口

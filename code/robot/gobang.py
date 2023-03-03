@@ -4,63 +4,6 @@ import time
 from robot.tools import play_sound
 from robot import LOG
 
-# 判断某一点连子数目
-def many(boa, n, i, j):
-    row = 9
-    column = 9
-    if not (boa[i][j] == n):  # 判断是否是该棋子
-        return 0
-    else:
-        n1 = n2 = n3 = n4 = 1
-        a = i
-        b = j
-        for k in range(5):  # 竖直
-            x = boa[a][b]
-            a += 1
-            if a > row - 1:
-                break
-            if x == boa[a][b]:
-                n1 += 1
-            else:
-                break
-        a = i
-        b = j
-        for k in range(5):  # 水平
-            x = boa[a][b]
-            b += 1
-            if b > column - 1:
-                break
-            if x == boa[a][b]:
-                n2 += 1
-            else:
-                break
-        a = i
-        b = j
-        for k in range(5):  # 左上到右下
-            x = boa[a][b]
-            a += 1
-            b += 1
-            if a > row - 1 or b > column - 1:
-                break
-            if x == boa[a][b]:
-                n3 += 1
-            else:
-                break
-        a = i
-        b = j
-        for k in range(5):  # 右上到左下
-            x = boa[a][b]
-            a += 1
-            b -= 1
-            if a > row - 1 or b < 0:
-                break
-            if x == boa[a][b]:
-                n4 += 1
-            else:
-                break
-
-    return max(n1, n2, n3, n4)
-
 
 # 将传入的字符串进行处理，等于number的数字转化为1,不等于的转化为2，其他转化为0
 def str_deal(str1, number):
@@ -287,13 +230,13 @@ class Gobang():
     def judge(self):
         for i in range(0, self.row):
             for j in range(0, self.column):
-                how_many = many(self.board.boa, 1, i, j)
+                how_many = self.many(self.board.boa, 1, i, j)
                 if how_many == 5:
                     self.board.flag = 1
                     # tkinter.messagebox.showinfo('提示', '黑棋胜利')
                     LOG.debug('人类胜利')
                 # self.root.destroy()
-                how_many = many(self.board.boa, 2, i, j)
+                how_many = self.many(self.board.boa, 2, i, j)
                 if how_many == 5:
                     self.board.flag = 2
                     # tkinter.messagebox.showinfo('提示', '白棋胜利')
@@ -309,6 +252,61 @@ class Gobang():
         if n == self.row * self.column:
             self.flag = 3
             self.canvas.create_text(self.column // 2 * 20, self.row // 2 * 20, fill='Red', text='平局')
+
+    # 判断某一点连子数目
+    def many(self, boa, n, i, j):
+        if not (boa[i][j] == n):  # 判断是否是该棋子
+            return 0
+        else:
+            n1 = n2 = n3 = n4 = 1
+            a = i
+            b = j
+            for k in range(5):  # 竖直
+                x = boa[a][b]
+                a += 1
+                if a > self.row - 1:
+                    break
+                if x == boa[a][b]:
+                    n1 += 1
+                else:
+                    break
+            a = i
+            b = j
+            for k in range(5):  # 水平
+                x = boa[a][b]
+                b += 1
+                if b > self.column - 1:
+                    break
+                if x == boa[a][b]:
+                    n2 += 1
+                else:
+                    break
+            a = i
+            b = j
+            for k in range(5):  # 左上到右下
+                x = boa[a][b]
+                a += 1
+                b += 1
+                if a > self.row - 1 or b > self.column - 1:
+                    break
+                if x == boa[a][b]:
+                    n3 += 1
+                else:
+                    break
+            a = i
+            b = j
+            for k in range(5):  # 右上到左下
+                x = boa[a][b]
+                a += 1
+                b -= 1
+                if a > self.row - 1 or b < 0:
+                    break
+                if x == boa[a][b]:
+                    n4 += 1
+                else:
+                    break
+
+        return max(n1, n2, n3, n4)
 
 
 if __name__ == '__main__':
