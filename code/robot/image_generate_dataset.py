@@ -78,9 +78,9 @@ class YoloDataProducer(object):
         p.rotate(probability=0.5, max_left_rotation=10, max_right_rotation=10)
         p.shear(probability=0.25, max_shear_left=5, max_shear_right=5)
         p.random_brightness(probability=0.9, min_factor=0.7, max_factor=1.3)
-        p.random_color(probability=0.9, min_factor=0.7, max_factor=1.3)
-        p.random_contrast(probability=0.9, min_factor=0.7, max_factor=1.3)
-        p.zoom(probability=0.8, min_factor=0.7, max_factor=1)
+        p.random_color(probability=0.9, min_factor=0.5, max_factor=1.5)
+        p.random_contrast(probability=0.9, min_factor=0.5, max_factor=1.5)
+        p.zoom(probability=0.8, min_factor=0.9, max_factor=1)
         p.scale(probability=0.2, scale_factor=1.1)
         p.scale(probability=0.2, scale_factor=1.2)
         p.scale(probability=0.2, scale_factor=1.3)
@@ -93,8 +93,8 @@ class YoloDataProducer(object):
         if self.is_circle:
             p.rotate_without_crop(probability=0.6, max_left_rotation=45, max_right_rotation=45)
         p.shear(probability=0.3, max_shear_left=3, max_shear_right=3)
-        p.random_color(probability=0.5, min_factor=0.7, max_factor=1.3)
-        p.random_contrast(probability=0.5, min_factor=0.3, max_factor=1.3)
+        p.random_color(probability=0.9, min_factor=0.5, max_factor=1.5)
+        p.random_contrast(probability=0.9, min_factor=0.5, max_factor=1.5)
         p.rotate_random_90(probability=0.75)
         p.zoom(probability=0.8, min_factor=0.7, max_factor=1)
         p.scale(probability=0.2, scale_factor=1.1)
@@ -212,7 +212,7 @@ class YoloDataProducer(object):
             img_foreground = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
             try:
                 img_foreground = transparence_to_white(img_foreground)
-                img_foreground = add_salt_noise(img_foreground)
+                # img_foreground = add_salt_noise(img_foreground)
             except:
                 pass
             # 将前景转化为二值化图mask

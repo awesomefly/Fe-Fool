@@ -150,13 +150,13 @@ def get_name_by_class(_class):
 
 # 修改透明背景为白色
 def transparence_to_white(img):
-    rand_threshold = randint(20, 70)
+    rand_threshold = randint(30, 80)
     img_new = img[:, :, 0:-1]
     transparence = img[:, :, -1]
     img_new[transparence < rand_threshold] = [255, 255, 255]
     return img_new
 
-def random_brightness(image, min_factor=0.7, max_factor=1.3):
+def random_brightness(image, min_factor=0.5, max_factor=1.5):
     image = Image.fromarray(cvtColor(image, COLOR_BGR2RGB))
     factor = np.random.uniform(min_factor, max_factor)
     image_enhancer_brightness = ImageEnhance.Brightness(image)
