@@ -198,6 +198,8 @@ class Gobang():
                     x1, y1 = ai(self.board, self.player2)
                     # self.show()
                     self.judge()
+                else:
+                    x1, y1 = 0, 0
                 self.x = x1
                 self.y = y1
                 return x1, y1, self.board.flag
@@ -310,5 +312,16 @@ class Gobang():
 
 
 if __name__ == '__main__':
-    A = Gobang(row=9, column=9, mode='2')
-    A.down(1, 1)
+    A = Gobang(row=13, column=13, mode='2')
+    A.down(6, 6)
+    A.down(5, 6)
+    A.down(4, 6)
+    A.down(7, 4)
+    A.down(7, 9)
+    A.down(4, 7)
+    A.down(5, 4)
+    A.down(4, 5)
+    A.down(4, 8)
+    A.down(3, 6)
+    A.down(6, 3)
+    A.down(7, 2)

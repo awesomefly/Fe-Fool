@@ -16,13 +16,9 @@ from math import sqrt
 
 from robot.tools import YamlHandler, CurveFitting
 from robot.robot_ik import inverse_kinematics
-from robot import SERVER_ADDR, ROOT, LOG, PARAMS_YAML
+from robot import SERVER_ADDR, ROOT, LOG
 
-PARAMS = YamlHandler(PARAMS_YAML).read_yaml()  # 读取params.yaml文件中配置的参数
-TEMP = PARAMS['pick_point']
-PICK_POINT_GOBANG = [TEMP[0], TEMP[1], TEMP[2]]  # 取五子棋的固定点
-
-ROBOT_PARAMS = '/robot_params.yaml'
+ROBOT_PARAMS = ROOT + '/robot_params.yaml'
 
 PER_ANGLE_TIME = 15  # 机械臂运行速度：舵机转动一度需要的时间，ms
 
@@ -285,22 +281,22 @@ class RobotSerialPortWindow:
             targetbutton = tk.Button(self.paramwindow, text='开始9点校准', command=self.do_first_point)
             targetbutton.grid(row=0, column=1, padx=20, pady=20, sticky=('e', 'w'))
 
-            reducebutton0 = tk.Button(self.paramwindow, text='0轴减10', command=self.reducebutton0cmd)
+            reducebutton0 = tk.Button(self.paramwindow, text='0轴减5', command=self.reducebutton0cmd)
             reducebutton0.grid(row=1, column=0, padx=20, pady=20, sticky=('e', 'w'))
 
-            addbutton0 = tk.Button(self.paramwindow, text='0轴加10', command=self.addbutton0cmd)
+            addbutton0 = tk.Button(self.paramwindow, text='0轴加5', command=self.addbutton0cmd)
             addbutton0.grid(row=1, column=2, padx=20, pady=20, sticky=('e', 'w'))
 
-            reducebutton1 = tk.Button(self.paramwindow, text='1轴减10', command=self.reducebutton1cmd)
+            reducebutton1 = tk.Button(self.paramwindow, text='1轴减5', command=self.reducebutton1cmd)
             reducebutton1.grid(row=2, column=0, padx=20, pady=20, sticky=('e', 'w'))
 
-            addbutton1 = tk.Button(self.paramwindow, text='1轴加10', command=self.addbutton1cmd)
+            addbutton1 = tk.Button(self.paramwindow, text='1轴加5', command=self.addbutton1cmd)
             addbutton1.grid(row=2, column=2, padx=20, pady=20, sticky=('e', 'w'))
 
-            reducebutton2 = tk.Button(self.paramwindow, text='2轴减10', command=self.reducebutton2cmd)
+            reducebutton2 = tk.Button(self.paramwindow, text='2轴减5', command=self.reducebutton2cmd)
             reducebutton2.grid(row=3, column=0, padx=20, pady=20, sticky=('e', 'w'))
 
-            addbutton2 = tk.Button(self.paramwindow, text='2轴加10', command=self.addbutton2cmd)
+            addbutton2 = tk.Button(self.paramwindow, text='2轴加5', command=self.addbutton2cmd)
             addbutton2.grid(row=3, column=2, padx=20, pady=20, sticky=('e', 'w'))
 
             addparabutton = tk.Button(self.paramwindow, text='确定该点已校准', command=self.addparabuttoncmd)
@@ -429,7 +425,7 @@ class RobotSerialPortWindow:
 
     def write_params(self, res, num):
         LOG.debug(f"结果：{res[0]}, {res[1]}")
-        hangler = YamlHandler(ROOT + ROBOT_PARAMS)
+        hangler = YamlHandler(ROBOT_PARAMS)
         data = hangler.read_yaml()
         data['len_calibration_' + str(num)] = float(res[0])
         data['init_engine_' + str(num)] = int(res[1])
@@ -437,7 +433,7 @@ class RobotSerialPortWindow:
 
     def read_params(self):
         global INIT_ENGINE_0, INIT_ENGINE_1, INIT_ENGINE_2
-        data = YamlHandler(ROOT + ROBOT_PARAMS).read_yaml()
+        data = YamlHandler(ROBOT_PARAMS).read_yaml()
         INIT_ENGINE_0 = data['init_engine_0']
         INIT_ENGINE_1 = data['init_engine_1']
         INIT_ENGINE_2 = data['init_engine_2']
@@ -455,27 +451,27 @@ class RobotSerialPortWindow:
         self.rectext.update()
 
     def addbutton0cmd(self):
-        self.last_engine_list[0] = self.last_engine_list[0] + 10
+        self.last_engine_list[0] = self.last_engine_list[0] + 5
         self.send_last_send()
 
     def addbutton1cmd(self):
-        self.last_engine_list[1] = self.last_engine_list[1] + 10
+        self.last_engine_list[1] = self.last_engine_list[1] + 5
         self.send_last_send()
 
     def addbutton2cmd(self):
-        self.last_engine_list[2] = self.last_engine_list[2] + 10
+        self.last_engine_list[2] = self.last_engine_list[2] + 5
         self.send_last_send()
 
     def reducebutton0cmd(self):
-        self.last_engine_list[0] = self.last_engine_list[0] - 10
+        self.last_engine_list[0] = self.last_engine_list[0] - 5
         self.send_last_send()
 
     def reducebutton1cmd(self):
-        self.last_engine_list[1] = self.last_engine_list[1] - 10
+        self.last_engine_list[1] = self.last_engine_list[1] - 5
         self.send_last_send()
 
     def reducebutton2cmd(self):
-        self.last_engine_list[2] = self.last_engine_list[2] - 10
+        self.last_engine_list[2] = self.last_engine_list[2] - 5
         self.send_last_send()
 
     def baudrateselectcmd(self, *args):
@@ -634,12 +630,12 @@ class RobotSerialPortWindow:
                                 ipady=15, padx=20, pady=20,
                                 sticky=('e', 'w'))
 
-            label = tk.Label(self.locatewindow, text='自定义工作台长度:')
+            label = tk.Label(self.locatewindow, text='自定义工作台尺寸:')
             label.grid(row=3, column=0, ipadx=20,
                        ipady=15, padx=20, pady=20,
                        sticky=('e', 'w'))
             inp = tk.Entry(self.locatewindow)
-            inp.insert(0, '300')
+            inp.insert(0, '200,300')
             inp.grid(row=3, column=1, ipadx=20,
                      ipady=15, padx=20, pady=20,
                      sticky=('e', 'w'))
@@ -651,8 +647,19 @@ class RobotSerialPortWindow:
                                     ipady=15, padx=20, pady=20,
                                     sticky=('e', 'w'))
 
+            label1 = tk.Label(self.locatewindow, text='取子点坐标:')
+            label1.grid(row=4, column=0, ipadx=20,
+                        ipady=15, padx=20, pady=20,
+                        sticky=('e', 'w'))
+            inp1 = tk.Entry(self.locatewindow)
+            inp1.insert(0, '50,200,0')
+            inp1.grid(row=4, column=1, ipadx=20,
+                      ipady=15, padx=20, pady=20,
+                      sticky=('e', 'w'))
+            self.inpfetch = inp1
+
             fetchlocatebutton = tk.Button(self.locatewindow, text='取子点定位', command=self.fetchlocatebuttoncmd)
-            fetchlocatebutton.grid(row=4, column=1, ipadx=40,
+            fetchlocatebutton.grid(row=4, column=2, ipadx=40,
                                    ipady=15, padx=20, pady=20,
                                    sticky=('e', 'w'))
 
@@ -665,47 +672,67 @@ class RobotSerialPortWindow:
 
     def customlocatebuttoncmd(self):
         try:
-            length = int(self.inplocate.get()) / 2
-            if length > 180:
+            size = list(map(float, self.inpfetch.get().split(',')))
+            wide, length = size[0], size[1]
+            if length > 360:
                 tk.messagebox.showerror(title='输入错误', message='输入错误或尺寸超出机械臂约束',
                                         parent=self.locatewindow)
                 return
-            self.location(100, length)
+            self.location(100 + wide / 2, length / 2)
         except:
             tk.messagebox.showerror(title='输入错误', message='输入错误或尺寸超出机械臂约束', parent=self.locatewindow)
 
     def chesslocatebuttoncmd(self):
-        # 120为棋盘与机械臂原点x轴的距离，100为棋盘的长度/2（y轴方向）
-        self.location(120+100, 100)
+        # 120为棋盘与机械臂原点x轴的距离，100为棋盘的宽度/2（x轴方向），100为棋盘的长度/2（y轴方向）
+        self.location(117 + 100, 100, mid=True)
 
     def gobanglocatebuttoncmd(self):
-        # 75为棋盘与机械臂原点x轴的距离，145为棋盘的长度/2（y轴方向）
-        self.location(75+147, 145)
+        # 75为棋盘与机械臂原点x轴的距离，147为棋盘的宽度/2（x轴方向），145为棋盘的长度/2（y轴方向）
+        self.location(75 + 147, 145)
 
     def a4locatebuttoncmd(self):
-        # 100为A4纸与机械臂原点x轴的距离，105为A4纸的长度/2（y轴方向）
-        self.location(100+148.5, 105)
+        # 100为A4纸与机械臂原点x轴的距离，148.5为棋盘的宽度/2（x轴方向），105为A4纸的长度/2（y轴方向）
+        self.location(100 + 148.5, 105)
 
-    def location(self, distance, length):
+    def location(self, distance, length, mid=False):
         self.robotrun([distance, length, 10])
         time.sleep(1)
         self.robotrun([distance, length, -5])
-        time.sleep(1)
+        time.sleep(0.5)
         self.robotrun([distance, length, 50])
+        if mid:
+            self.robotrun([118, 0, 50])
+            self.robotrun([118, 0, 10])
+            time.sleep(1)
+            self.robotrun([118, 0, -5])
+            time.sleep(0.5)
+            self.robotrun([118, 0, 50])
         self.robotrun([distance, -length, 50])
         self.robotrun([distance, -length, 10])
         time.sleep(1)
         self.robotrun([distance, -length, -5])
-        time.sleep(1)
+        time.sleep(0.5)
         self.robotrun([distance, -length, 50])
         self.restoration()
 
     def fetchlocatebuttoncmd(self):
-        self.robotrun([PICK_POINT_GOBANG[0], PICK_POINT_GOBANG[1], PICK_POINT_GOBANG[2] + 10])
+        pick_point_gobang = list(map(float, self.inpfetch.get().split(',')))
+
+        self.robotrun([pick_point_gobang[0], pick_point_gobang[1] - 50, pick_point_gobang[2] + 20])
+        self.robotrun([pick_point_gobang[0], pick_point_gobang[1], pick_point_gobang[2] + 20])
         time.sleep(1)
-        self.robotrun([PICK_POINT_GOBANG[0], PICK_POINT_GOBANG[1], PICK_POINT_GOBANG[2] - 5])
+        self.robotrun([pick_point_gobang[0], pick_point_gobang[1], pick_point_gobang[2] - 5])
         time.sleep(1)
-        self.robotrun([PICK_POINT_GOBANG[0], PICK_POINT_GOBANG[1], PICK_POINT_GOBANG[2] + 50])
+        self.robotrun([pick_point_gobang[0], pick_point_gobang[1], pick_point_gobang[2] + 50])
+        self.robotrun([pick_point_gobang[0], pick_point_gobang[1] - 50, pick_point_gobang[2] + 50])
+
+        hangler = YamlHandler(ROBOT_PARAMS)
+        data = hangler.read_yaml()
+        LOG.debug(f"yaml修改前数据：{data}")
+        data['pick_point'] = pick_point_gobang
+        hangler.write_yaml(data)
+        LOG.debug(f"yaml修改后数据：{data}")
+
         self.restoration()
 
     def runbuttoncmd(self):

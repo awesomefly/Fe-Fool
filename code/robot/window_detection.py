@@ -42,15 +42,15 @@ class DetecterWindow(Observable):
         super().__init__()
         self.detect_flag = False
         self.connect_flag = False
-        self.robot_working_flag = False
         self.self_yolo = None
         self.capture = None
         self.canny_min_threshold = 30
         self.canny_max_threshold = 250
 
         self.window_flag_bit = window_flag_bit
-        self.window(root)
+        self.robot_master = None
 
+        self.window(root)
 
     def window(self, root):
         self.root = root
@@ -290,9 +290,7 @@ class DetecterWindow(Observable):
                 last_class_list = new_class_list
 
                 if self.connect_flag and is_correct:
-                    self.robot_working_flag = True
                     self.publish("yolo_res", pixel_list, res_img.shape)
-                    self.robot_working_flag = False
 
             # LOG.debug(f"本帧运行时间:{time.time() - start_time}")
         if self.detect_flag:
@@ -306,19 +304,23 @@ class DetecterWindow(Observable):
             return
         hand_class = data['names'].index('hand')
         last_stop_time = 0
+        count = 0
         pause_flag = False
         while self.detect_flag:
             hand_flag = False
-            if self.robot_working_flag:
+            if self.robot_master is not None and self.robot_master.is_working():
                 cur_img = self.get_video_frame()
                 res_img, yolo_list = self.self_yolo.detect(cur_img)
                 # tk_show_img(self.panel, res_img)
                 # LOG.debug(f"人手检测结果:{yolo_list}")
                 for _, _, _, _, c in yolo_list:
                     if c == hand_class:
-                        hand_flag = True
-                        LOG.debug("人手进入工作区域")
-                        break
+                        count += 1
+                        if count >= 2:
+                            count = 0
+                            hand_flag = True
+                            LOG.debug("人手进入工作区域")
+                            break
                 if hand_flag:
                     if not pause_flag:
                         self.publish("safety", "pause")
