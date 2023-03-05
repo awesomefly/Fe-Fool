@@ -4,3 +4,7 @@ init_engine_2: 1573
 len_calibration_0: -0.006000705661221355
 len_calibration_1: -0.00700897507581439
 len_calibration_2: 0.004469144849546805
+pick_point:
+- 46.0
+- 198.0
+- 0.0

@@ -8,10 +8,8 @@ from math import sqrt
 
 from robot.tools import coordinate_mapping, play_sound, play_sound_thread, get_name_by_class, \
     plane_coordinate_transform, YamlHandler, Observer, GlobalVar
-from robot import LOG, PARAMS_YAML, SERVER_ADDR, chess, gobang
+from robot import LOG, ROOT, PARAMS_YAML, SERVER_ADDR, chess, gobang
 from robot.robot_ik import inverse_kinematics
-
-PARAMS = YamlHandler(PARAMS_YAML).read_yaml()  # 读取params.yaml文件中配置的参数
 
 """
 （这里用中文会错位，见谅）
@@ -28,13 +26,6 @@ PARAMS = YamlHandler(PARAMS_YAML).read_yaml()  # 读取params.yaml文件中配�
 高:z方向，桌面的法向量
 """
 
-# 普通抓取模式工作台参数,读取用户自定义的参数
-WIDTH_GRAB = PARAMS['width_grab']  # 工作台宽，x方向
-LENGTH_GRAB = PARAMS['length_grab']  # 工作台长，y方向
-HIGH_GRAB = PARAMS['high_grab']  # 工作台高，z方向
-TRANSFORM_X_GRAB = PARAMS['transform_x_grab']  # 棋盘距离机械臂原点X轴的平移
-MAP_CLASS_2_POS = PARAMS['map_class_2_pos']  # key:目标种类  value:抓取目标点
-
 # 五子棋物理参数
 WIDTH_GOBANG = 294  # 五子棋盘总宽度
 LENGTH_GOBANG = 290  # 五子棋盘总长度
@@ -46,11 +37,6 @@ COLUMN_GOBANG = 13  # 五子棋盘列数(长度方向)
 
 TRANSFORM_X_GOBANG = 75  # 棋盘距离机械臂原点X轴的平移
 
-TEMP = PARAMS['pick_point']
-PICK_POINT_GOBANG = [TEMP[0], TEMP[1], TEMP[2]]  # 取五子棋的固定点
-MID_POINT_GOBANG = [TEMP[0], TEMP[1] - 50, TEMP[2] + 40]  # 取五子棋的后走的中间点
-START_POINT_GOBANG = [TEMP[0], TEMP[1], TEMP[2] + 40]  # 五子棋模式固定起始点
-
 # 象棋物理参数
 WIDTH_CHESS = 200  # 象棋盘总宽度
 LENGTH_CHESS = 200  # 象棋盘总长度
@@ -58,14 +44,14 @@ HIGH_CHESS = 23  # 象棋棋盘+棋子高度
 WIDTH_ERR_CHESS = 20  # 象棋盘内外边框间距(宽度方向)
 LENGTH_ERR_CHESS = 18  # 象棋盘内外边框间距(长度方向)
 
-CHESS_DUMP_COORDINATE = [120, 170, 20]  # 象棋吃子后放置的固定点
-START_POINT_CHESS = [120, 170, 30]  # 象棋模式固定起始点
+CHESS_DUMP_COORDINATE = [50, 130, 20]  # 象棋吃子后放置的固定点
+START_POINT_CHESS = [50, 130, 40]  # 象棋模式固定起始点
 
 TRANSFORM_X_CHESS = 120  # 棋盘距离机械臂原点X轴的平移
 
 # 其他公共参数
 ERROR_NUM = 9999  # 一个较大的值来做为错误值
-
+ROBOT_PARAMS = ROOT + '/robot_params.yaml'
 
 class RobotMaster(Observer):
     def __init__(self, width, length):
@@ -74,6 +60,7 @@ class RobotMaster(Observer):
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.start_flag = False
         self.pause_flag = False
+        self.working_flag = False  # 运动中
         self.start_point = []
 
     # window_detection发布过来的消息在这里处理
@@ -114,6 +101,9 @@ class RobotMaster(Observer):
 
     def is_start(self):
         return self.start_flag
+
+    def is_working(self):
+        return self.working_flag
 
     # mod: 1 去某点取   2  放到某点
     def send_command(self, str_command):
@@ -210,7 +200,10 @@ class GobangRobotMaster(BoardGamesRobotMaster):
         super().__init__(width, length, width_err, length_err)
         self.row = row
         self.column = column
-        self.start_point = START_POINT_GOBANG
+        pick_params = YamlHandler(ROBOT_PARAMS).read_yaml()['pick_point']  # 读取params.yaml文件中配置的参数
+        self.pick_point = [pick_params[0], pick_params[1], pick_params[2]]  # 取五子棋的固定点
+        self.mid_point = [pick_params[0], pick_params[1] - 50, pick_params[2] + 40]  # 取五子棋的后走的中间点
+        self.start_point = [pick_params[0], pick_params[1], pick_params[2] + 40]  # 五子棋模式起始点
         self.gobang_ai = gobang.Gobang(row=self.row, column=self.column)
         self.get_our_class()
 
@@ -296,7 +289,13 @@ class GobangRobotMaster(BoardGamesRobotMaster):
 
                 self.history_set.add(our_down_pos)
                 if not is_no_ik:
+                    self.working_flag = True
                     self.robot_do_gobang(ai_down_coordinate_x, ai_down_coordinate_y)
+                    self.working_flag = False
+
+                    self.send_command(
+                        self.command_to_str("move", self.mid_point[0], self.mid_point[1], self.mid_point[2]))
+                    self.robot_back()
 
                 if res == 1:  # 胜负已分
                     play_sound_thread('win')
@@ -316,11 +315,8 @@ class GobangRobotMaster(BoardGamesRobotMaster):
                                                                                 transform_x=TRANSFORM_X_GOBANG,
                                                                                 transform_y=-self.length / 2,
                                                                                 transform_angle=0)
-
-        self.robot_move_to(PICK_POINT_GOBANG, (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_GOBANG),
-                           MID_POINT_GOBANG)
-        self.send_command(self.command_to_str("move", MID_POINT_GOBANG[0], MID_POINT_GOBANG[1], MID_POINT_GOBANG[2]))
-        self.robot_back()
+        self.robot_move_to(self.pick_point, (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_GOBANG),
+                           self.mid_point)
 
     def coordinate_to_pos(self, coordinate_list):
         pos_set = set()
@@ -460,8 +456,10 @@ class ChessRobotMaster(BoardGamesRobotMaster):
                         self.history_set.remove(pos)
                         break
 
+                self.working_flag = True
                 self.robot_do_chess(ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x,
                                     ai_down_coordinate_y, is_eat)
+                self.working_flag = False
 
                 if res == 1:  # 胜负已分
                     play_sound_thread('win')
@@ -474,6 +472,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
                 else:
                     play_sound_thread("your")
             self.last_down_time = time.time()
+
     def robot_do_chess(self, ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x, ai_down_coordinate_y,
                        is_eat):
         # 这里算出来的是棋盘中交点的坐标，应该去取棋子的实际坐标
@@ -575,7 +574,15 @@ class ChessRobotMaster(BoardGamesRobotMaster):
 
 
 class GrabRobotMaster(RobotMaster):
-    def __init__(self, width=WIDTH_GRAB, length=LENGTH_GRAB):
+    PARAMS = YamlHandler(PARAMS_YAML).read_yaml()  # 读取params.yaml文件中配置的参数
+    # 普通抓取模式工作台参数,读取用户自定义的参数
+    WIDTH = PARAMS['width_grab']  # 工作台宽，x方向
+    LENGTH = PARAMS['length_grab']  # 工作台长，y方向
+    HIGH = PARAMS['high_grab']  # 工作台高，z方向
+    TRANSFORM_X = PARAMS['transform_x_grab']  # 棋盘距离机械臂原点X轴的平移
+    MAP_CLASS_2_POS = PARAMS['map_class_2_pos']  # key:目标种类  value:抓取目标点
+
+    def __init__(self, width=WIDTH, length=LENGTH):
         super().__init__(width, length)
         self.count = 0
         self.history_coordinate_list = []
@@ -585,7 +592,7 @@ class GrabRobotMaster(RobotMaster):
     def is_robot_has_ik(self, coordinate):
         coordinate_x, coordinate_y = plane_coordinate_transform(coordinate_x=coordinate[0],
                                                                 coordinate_y=coordinate[1],
-                                                                transform_x=TRANSFORM_X_GRAB,
+                                                                transform_x=GrabRobotMaster.TRANSFORM_X,
                                                                 transform_y=-self.length / 2,
                                                                 transform_angle=0)
         has_ik1, _, _, _ = inverse_kinematics(coordinate_x, coordinate_y, coordinate[2])
@@ -598,13 +605,16 @@ class GrabRobotMaster(RobotMaster):
         if self.check_coordinate(coordinate_list):
             for coordinate_x, coordinate_y, _class in coordinate_list:
                 # 只抓取用户配置了的物体
-                if _class in MAP_CLASS_2_POS:
+                if _class in GrabRobotMaster.MAP_CLASS_2_POS:
                     # 先判断机械臂有没有解
-                    if not self.is_robot_has_ik((coordinate_x, coordinate_y, HIGH_GRAB)):
+                    if not self.is_robot_has_ik((coordinate_x, coordinate_y, GrabRobotMaster.HIGH)):
                         play_sound("res")
                         return
 
-                    self.robot_do_grab(coordinate_x, coordinate_y, HIGH_GRAB, _class)
+                    self.working_flag = True
+                    self.robot_do_grab(coordinate_x, coordinate_y, GrabRobotMaster.HIGH, _class)
+                    self.working_flag = False
+
                     self.robot_back()
                     break
 
@@ -631,8 +641,8 @@ class GrabRobotMaster(RobotMaster):
         # 棋盘坐标转机械臂坐标
         coordinate_x, coordinate_y = plane_coordinate_transform(coordinate_x=coordinate_x,
                                                                 coordinate_y=coordinate_y,
-                                                                transform_x=TRANSFORM_X_GRAB,
+                                                                transform_x=GrabRobotMaster.TRANSFORM_X,
                                                                 transform_y=-self.length / 2,
                                                                 transform_angle=0)
 
-        self.robot_move_to((coordinate_x, coordinate_y, coordinate_z), MAP_CLASS_2_POS[_class]['pos'])
+        self.robot_move_to((coordinate_x, coordinate_y, coordinate_z), GrabRobotMaster.MAP_CLASS_2_POS[_class]['pos'])
