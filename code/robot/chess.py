@@ -445,6 +445,7 @@ class Chess():
     def __init__(self):
         self.hist = [Position(initial, 0)]
         self.searcher = Searcher()
+        self.count = 0
 
     def pos_to_str(self, pick_pos, down_pos):
         return str(POS_LIST[pick_pos[0]]) + str(pick_pos[1]) + str(POS_LIST[down_pos[0]]) + str(down_pos[1])
@@ -480,7 +481,7 @@ class Chess():
         # Fire up the engine to look for a move.
         start_time = time.time()
         for _depth, move, score in self.searcher.search(self.hist[-1], self.hist):
-            if time.time() - start_time > THINK_TIME:
+            if time.time() - start_time > THINK_TIME or self.count < 5:
                 break
 
             elif time.time() - start_time > THINK_TIME / 2:
@@ -501,6 +502,7 @@ class Chess():
             res = 2
 
         ai_pick_pos, ai_down_pos = self.str_to_pos(ai_move)
+        self.count = self.count + 1
         return ai_pick_pos, ai_down_pos, res
 
     def do_win(self):
