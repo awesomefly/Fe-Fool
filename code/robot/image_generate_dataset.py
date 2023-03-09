@@ -7,6 +7,7 @@ import os
 import Augmentor
 import shutil
 from tkinter import messagebox
+import threading
 
 from robot.tools import transparence_to_white,random_brightness,add_salt_noise, YamlHandler, copyfile, change_hand_label
 from robot import ROOT, PARAMS_YAML, IMAGE_DATA_PATH, LOG
@@ -169,9 +170,24 @@ class YoloDataProducer(object):
     def produce(self):
         if len(self.foreground_list_map) == 0:
             LOG.error("无数据可生成数据集")
+            messagebox.showerror('错误', '无数据可生成数据集', self.root)
             return
         random.shuffle(self.background_list)
-        for background_name in self.background_list:
+
+        from multiprocessing import cpu_count
+        pool = []  # 线程池
+        length = len(self.background_list)
+        step = int(length / cpu_count()) + 1
+        for i in range(0, length, step):
+            p = threading.Thread(target=self.produce_thread, args=(self.background_list[i: i + step]))
+            pool.append(p)
+        for p in pool:
+            p.start()
+        for p in pool:
+            p.join()
+
+    def produce_thread(self, background_list):
+        for background_name in background_list:
             img_background = cv2.imread(background_name)
             for i in range(self.per_num):
                 img_background_new = img_background.copy()
@@ -246,7 +262,7 @@ class YoloDataProducer(object):
             start_index = len(random_point_list)
 
         # 生成yolo格式的数据集
-        save_name = time.time().__str__()
+        save_name = threading.currentThread().__str__() + time.time().__str__()
 
         # 训练集:测试集:验证集 = 6:2:2
         random_file_num = random.randint(1, 5)
