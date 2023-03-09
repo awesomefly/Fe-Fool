@@ -49,7 +49,8 @@ class YoloDataWindow:
     def run(self, per_num=0, overlap_factor=0, max_num=0, is_circle=True):
         self.btn.grid_forget()
         tkinter.Label(self.root, text='数据集生成进度:').grid(row=6, column=0)
-        progressbar = tkinter.ttk.Progressbar(self.root, length=200, maximum=100)
+        from tkinter import ttk
+        progressbar = ttk.Progressbar(self.root, length=200, maximum=100)
         progressbar.grid(row=6, column=1)
         self.root.update()
 

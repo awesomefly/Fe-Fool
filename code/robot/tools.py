@@ -156,7 +156,7 @@ def transparence_to_white(img):
     img_new[transparence < rand_threshold] = [255, 255, 255]
     return img_new
 
-def random_brightness(image, min_factor=0.5, max_factor=1.5):
+def random_brightness(image, min_factor=0.6, max_factor=1.3):
     image = Image.fromarray(cvtColor(image, COLOR_BGR2RGB))
     factor = np.random.uniform(min_factor, max_factor)
     image_enhancer_brightness = ImageEnhance.Brightness(image)
