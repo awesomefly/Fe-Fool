@@ -9,13 +9,16 @@ import shutil
 from tkinter import messagebox
 import threading
 
-from robot.tools import transparence_to_white,random_brightness,add_salt_noise, YamlHandler, copyfile, change_hand_label
+from robot.tools import transparence_to_white, random_brightness, add_salt_noise, YamlHandler, copyfile, \
+    change_hand_label
 from robot import ROOT, PARAMS_YAML, IMAGE_DATA_PATH, LOG
 
 DATA_NAME = YamlHandler(PARAMS_YAML).read_yaml()['data_name']
 
 BACKGROUND_INPUT_PATH = IMAGE_DATA_PATH + DATA_NAME + "/background_imgs/"
 FOREGROUND_INPUT_PATH = IMAGE_DATA_PATH + DATA_NAME + "/foreground_imgs/"
+
+LABELS_OUT_PATH = IMAGE_DATA_PATH + DATA_NAME + "/output_yolo/labels/"
 
 IMAGES_OUT_PATH_VAL = IMAGE_DATA_PATH + DATA_NAME + "/output_yolo/images/val/"
 LABELS_OUT_PATH_VAL = IMAGE_DATA_PATH + DATA_NAME + "/output_yolo/labels/val/"
@@ -35,7 +38,7 @@ LABELS_HAND_TRAIN = IMAGE_DATA_PATH + "hands/labels/train/"
 IMAGES_HAND_VAL = IMAGE_DATA_PATH + "hands/images/val/"
 LABELS_HAND_VAL = IMAGE_DATA_PATH + "hands/labels/val/"
 
-PER_BACKGROUND_NUM = 188
+PER_BACKGROUND_NUM = 10
 PER_SAMPLE_NUM = 20
 
 
@@ -94,10 +97,10 @@ class YoloDataProducer(object):
         if self.is_circle:
             p.rotate_without_crop(probability=0.6, max_left_rotation=45, max_right_rotation=45)
         p.shear(probability=0.3, max_shear_left=3, max_shear_right=3)
-        p.random_color(probability=0.9, min_factor=0.5, max_factor=1.5)
-        p.random_contrast(probability=0.9, min_factor=0.5, max_factor=1.5)
+        p.random_color(probability=0.9, min_factor=0.7, max_factor=1.3)
+        p.random_contrast(probability=0.9, min_factor=0.7, max_factor=1.3)
         p.rotate_random_90(probability=0.75)
-        p.zoom(probability=0.8, min_factor=0.7, max_factor=1)
+        p.zoom(probability=0.6, min_factor=0.7, max_factor=1)
         p.scale(probability=0.2, scale_factor=1.1)
         p.scale(probability=0.2, scale_factor=1.2)
         p.scale(probability=0.2, scale_factor=1.3)
@@ -134,23 +137,18 @@ class YoloDataProducer(object):
             cv2.imwrite(temp_name, img_foreground)
 
     def delete(self, ):
-
+        if os.path.exists(LABELS_OUT_PATH):
+            shutil.rmtree(LABELS_OUT_PATH)
         if os.path.exists(IMAGES_OUT_PATH_VAL):
             shutil.rmtree(IMAGES_OUT_PATH_VAL)
-        if os.path.exists(LABELS_OUT_PATH_VAL):
-            shutil.rmtree(LABELS_OUT_PATH_VAL)
         show_progress(self.root, self.progressbar, 2.5)
 
         if os.path.exists(IMAGES_OUT_PATH_TEST):
             shutil.rmtree(IMAGES_OUT_PATH_TEST)
-        if os.path.exists(LABELS_OUT_PATH_TEST):
-            shutil.rmtree(LABELS_OUT_PATH_TEST)
         show_progress(self.root, self.progressbar, 2.5)
 
         if os.path.exists(IMAGES_OUT_PATH_TRAIN):
             shutil.rmtree(IMAGES_OUT_PATH_TRAIN)
-        if os.path.exists(LABELS_OUT_PATH_TRAIN):
-            shutil.rmtree(LABELS_OUT_PATH_TRAIN)
         show_progress(self.root, self.progressbar, 2.5)
 
         if os.path.exists(BACKGROUND_INPUT_PATH + "output"):
@@ -177,23 +175,40 @@ class YoloDataProducer(object):
         from multiprocessing import cpu_count
         pool = []  # 线程池
         length = len(self.background_list)
-        step = int(length / cpu_count()) + 1
+        step = int(length / (cpu_count() + 1)) + 1
+        count = 0
+        self.produce_count = 0
+        self.end_flag = False
+
         for i in range(0, length, step):
-            p = threading.Thread(target=self.produce_thread, args=(self.background_list[i: i + step]))
+            p = threading.Thread(target=self.produce_thread, args=(self.background_list[i: i + step], count,))
             pool.append(p)
+            count = count + 1
         for p in pool:
+            p.setDaemon(True)
             p.start()
+        #  TMD,这个progressbar没法在子线程中更新，恶心
+        last_num = 0
+        while self.end_flag == False:
+            show_progress(self.root, self.progressbar, (self.produce_count-last_num )* 80 / (step-1))
+            last_num = self.produce_count
+            time.sleep(1)
+            print(self.produce_count-last_num,step)
         for p in pool:
             p.join()
 
-    def produce_thread(self, background_list):
+    def produce_thread(self, background_list,thread_count):
         for background_name in background_list:
             img_background = cv2.imread(background_name)
             for i in range(self.per_num):
                 img_background_new = img_background.copy()
                 self.produce_single(img_background_new)
             LOG.debug(f"已生成背景为  {background_name}  的数据")
-            show_progress(self.root, self.progressbar, 70 / len(self.background_list))
+
+            # 用于显示进度条，这里不用互斥锁以免降低性能，用一个线程来估算全部线程
+            if thread_count == 0:
+                self.produce_count = self.produce_count + 1
+        self.end_flag = True
 
     # 写yolo的yaml文件
     def write_yolo_yaml(self):
@@ -262,7 +277,7 @@ class YoloDataProducer(object):
             start_index = len(random_point_list)
 
         # 生成yolo格式的数据集
-        save_name = threading.currentThread().__str__() + time.time().__str__()
+        save_name = threading.get_ident().__str__() + time.time().__str__()
 
         # 训练集:测试集:验证集 = 6:2:2
         random_file_num = random.randint(1, 5)

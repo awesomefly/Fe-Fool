@@ -460,6 +460,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
                 self.robot_do_chess(ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x,
                                     ai_down_coordinate_y, is_eat)
                 self.working_flag = False
+                self.robot_back()
 
                 if res == 1:  # 胜负已分
                     play_sound_thread('win')
@@ -501,7 +502,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
             self.robot_move_to((ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS), random_dump_coordinate)
         self.robot_move_to((ai_pick_coordinate_x, ai_pick_coordinate_y, HIGH_CHESS),
                            (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS))
-        self.robot_back()
+
 
     def find_real_coordinate(self, ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x,
                              ai_down_coordinate_y,
