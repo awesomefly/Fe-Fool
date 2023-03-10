@@ -5,10 +5,7 @@ import re, time
 from itertools import count
 from collections import namedtuple
 
-from robot import PARAMS_YAML, LOG
-from robot.tools import YamlHandler
-
-THINK_TIME = YamlHandler(PARAMS_YAML).read_yaml()['think_time']
+from robot import LOG
 
 piece = {'P': 44, 'N': 108, 'B': 23, 'R': 233, 'A': 23, 'C': 101, 'K': 2500}
 
@@ -442,10 +439,11 @@ from robot.tools import play_sound_thread
 
 
 class Chess():
-    def __init__(self):
+    def __init__(self, think_depth=3):
         self.hist = [Position(initial, 0)]
         self.searcher = Searcher()
         self.count = 0
+        self.think_depth = think_depth
 
     def pos_to_str(self, pick_pos, down_pos):
         return str(POS_LIST[pick_pos[0]]) + str(pick_pos[1]) + str(POS_LIST[down_pos[0]]) + str(down_pos[1])
@@ -481,10 +479,10 @@ class Chess():
         # Fire up the engine to look for a move.
         start_time = time.time()
         for _depth, move, score in self.searcher.search(self.hist[-1], self.hist):
-            if time.time() - start_time > THINK_TIME or self.count < 5:
+            if _depth > self.think_depth:
                 break
 
-            elif time.time() - start_time > THINK_TIME / 2:
+            elif time.time() - start_time > 4:
                 play_sound_thread("wait")
 
         if score == MATE_UPPER:

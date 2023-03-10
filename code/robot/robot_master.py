@@ -44,14 +44,15 @@ HIGH_CHESS = 23  # 象棋棋盘+棋子高度
 WIDTH_ERR_CHESS = 20  # 象棋盘内外边框间距(宽度方向)
 LENGTH_ERR_CHESS = 18  # 象棋盘内外边框间距(长度方向)
 
-CHESS_DUMP_COORDINATE = [50, 130, 20]  # 象棋吃子后放置的固定点
-START_POINT_CHESS = [50, 130, 40]  # 象棋模式固定起始点
+CHESS_DUMP_COORDINATE = [70, 120, 50]  # 象棋吃子后放置的固定点
+START_POINT_CHESS = [70, 120, 50]  # 象棋模式固定起始点
 
 TRANSFORM_X_CHESS = 120  # 棋盘距离机械臂原点X轴的平移
 
 # 其他公共参数
 ERROR_NUM = 9999  # 一个较大的值来做为错误值
 ROBOT_PARAMS = ROOT + '/robot_params.yaml'
+
 
 class RobotMaster(Observer):
     def __init__(self, width, length):
@@ -120,7 +121,7 @@ class RobotMaster(Observer):
             res_str += str(n) + ","
         return res_str
 
-    def robot_move_to(self, start_coordinate, target_coordinate, mid_coordinate=[]):
+    def robot_move_to(self, start_coordinate, target_coordinate, mid_coordinate=[], is_rude=False):
         # start_coordinate取子，从目标位置高20mm的位置开始下降，这样的控制会更加稳定
         self.send_command(self.command_to_str("move", start_coordinate[0], start_coordinate[1],
                                               start_coordinate[2] + 20))
@@ -137,14 +138,20 @@ class RobotMaster(Observer):
             self.send_command(self.command_to_str("move", mid_coordinate[0], mid_coordinate[1], mid_coordinate[2]))
 
         # 目标点放
-        self.send_command(
-            self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2] + 20))
-        time.sleep(1.5)
-        self.send_command(self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2]))
-        self.send_command(self.command_to_str("down"))
-        # 抬起30mm
-        self.send_command(
-            self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2] + 30))
+        if is_rude:
+            self.send_command(
+                self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2]))
+            self.send_command(self.command_to_str("down"))
+        else:
+            self.send_command(
+                self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2] + 20))
+            time.sleep(1.5)
+            self.send_command(
+                self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2]))
+            self.send_command(self.command_to_str("down"))
+            # 抬起30mm
+            self.send_command(
+                self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2] + 30))
 
     def robot_back(self):
         # 回到起点
@@ -349,12 +356,15 @@ class GobangRobotMaster(BoardGamesRobotMaster):
 
 
 class ChessRobotMaster(BoardGamesRobotMaster):
-    def __init__(self, width=WIDTH_CHESS, length=LENGTH_CHESS, width_err=WIDTH_ERR_CHESS, length_err=LENGTH_ERR_CHESS):
+    def __init__(self, width=WIDTH_CHESS, length=LENGTH_CHESS, width_err=WIDTH_ERR_CHESS, length_err=LENGTH_ERR_CHESS,
+                 think_depth=3):
         super().__init__(width, length, width_err, length_err)
-        self.chess_ai = chess.Chess()
+        self.think_depth = think_depth
+        self.chess_ai = chess.Chess(think_depth=think_depth)
         self.all_chess_list = []
         self.start_point = START_POINT_CHESS
         self.get_our_class()
+
 
     # 玩家的象棋类别，红子(先手)
     def get_our_class(self):
@@ -372,7 +382,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
     def restart(self):
         answer = messagebox.askokcancel('憨憨', '再来一局？')
         if answer:
-            self.chess_ai = chess.Chess()
+            self.chess_ai = chess.Chess(think_depth=self.think_depth)
             self.history_set.clear()
             self.count = 0
             self.last_down_time = 0
@@ -499,10 +509,10 @@ class ChessRobotMaster(BoardGamesRobotMaster):
             # 随机范围放置，防止堆太高
             random_dump_coordinate = [CHESS_DUMP_COORDINATE[0] + random.randint(-25, 25),
                                       CHESS_DUMP_COORDINATE[1] + random.randint(-25, 25), CHESS_DUMP_COORDINATE[2]]
-            self.robot_move_to((ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS), random_dump_coordinate)
+            self.robot_move_to((ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS), random_dump_coordinate,
+                               is_rude=True)
         self.robot_move_to((ai_pick_coordinate_x, ai_pick_coordinate_y, HIGH_CHESS),
                            (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS))
-
 
     def find_real_coordinate(self, ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x,
                              ai_down_coordinate_y,

@@ -44,8 +44,7 @@ class DetecterWindow(Observable):
         self.connect_flag = False
         self.self_yolo = None
         self.capture = None
-        self.canny_min_threshold = 30
-        self.canny_max_threshold = 250
+        self.chess_think_depth = 3
 
         self.window_flag_bit = window_flag_bit
         self.robot_master = None
@@ -86,24 +85,16 @@ class DetecterWindow(Observable):
         self.cameraselect['value'] = get_cameras()
 
         self.detect_button = tkinter.Button(self.root, text='开始检测', command=self.start_detect_cmd)
-        self.min_threshold_label = tkinter.Label(self.root, bg='#9FB6CD', width=18, text='')
-        self.min_threshold_scale = tkinter.Scale(self.root,
-                                                 label='如画面明显跳跃，请调整该值',
-                                                 from_=1,
-                                                 to=80,
-                                                 orient=tkinter.HORIZONTAL,  # 设置Scale控件平方向显示
-                                                 length=400,
-                                                 tickinterval=10,  # 设置刻度滑动条的间隔
-                                                 command=self.set_canny_min_threshold)  # 调用执行函数，是数值显示在 Label控件中
-        self.max_threshold_label = tkinter.Label(self.root, bg='#9FB6CD', width=18, text='')
-        self.max_threshold_scale = tkinter.Scale(self.root,
-                                                 label='如画面明显跳跃，请调整该值',
-                                                 from_=130,
-                                                 to=255,
-                                                 orient=tkinter.HORIZONTAL,  # 设置Scale控件平方向显示
-                                                 length=400,
-                                                 tickinterval=10,  # 设置刻度滑动条的间隔
-                                                 command=self.set_canny_max_threshold)  # 调用执行函数，是数值显示在 Label控件中
+        self.chess_think_depth_label = tkinter.Label(self.root, bg='#9FB6CD', width=80,
+                                                     text='象棋AI思考步数，步数越多，难度越高，超过5步会等较长时间。当前思考步数：3')
+        self.chess_think_depth_scale = tkinter.Scale(self.root,
+                                                     # label='象棋AI思考步数，步数越多，难度越高',
+                                                     from_=1,
+                                                     to=20,
+                                                     orient=tkinter.HORIZONTAL,  # 设置Scale控件平方向显示
+                                                     length=400,
+                                                     tickinterval=2,  # 设置刻度滑动条的间隔
+                                                     command=self.set_chess_think_depth)  # 调用执行函数，是数值显示在 Label控件中
         self.connect_button = tkinter.Button(self.root, text='开始工作', command=self.connect_cmd)
 
         # 工作类型
@@ -142,10 +133,6 @@ class DetecterWindow(Observable):
 
     def connect_cmd(self):
         if self.connect_button['text'] == '开始工作':
-            self.min_threshold_scale.grid_forget()
-            self.min_threshold_label.grid_forget()
-            self.max_threshold_scale.grid_forget()
-            self.max_threshold_label.grid_forget()
             if self.game_mode.get() == 0:
                 tkinter.messagebox.showerror('错误', '未选择模式', parent=self.root)
                 return
@@ -164,13 +151,15 @@ class DetecterWindow(Observable):
         if game_mode == 1:
             self.robot_master = robot_master.GobangRobotMaster()
         elif game_mode == 2:
-            self.robot_master = robot_master.ChessRobotMaster()
+            self.robot_master = robot_master.ChessRobotMaster(think_depth=self.chess_think_depth)
         elif game_mode == 3:
             self.robot_master = robot_master.GrabRobotMaster()
 
         if self.robot_master.connect_robot() == 0:  # 连接成功
             self.connect_flag = True
 
+            self.chess_think_depth_scale.grid_forget()
+            self.chess_think_depth_label.grid_forget()
             self.radio_button_gobang.grid_forget()
             self.radio_button_chess.grid_forget()
             self.radio_button_grab.grid_forget()
@@ -187,26 +176,27 @@ class DetecterWindow(Observable):
         self.unregister(self.robot_master, "safety")
         self.connect_flag = False
         self.robot_master.close()
-        self.radio_button_gobang.grid(row=3, column=0)
-        self.radio_button_chess.grid(row=3, column=1)
-        self.radio_button_grab.grid(row=3, column=2)
+        self.chess_think_depth_scale.grid(row=3, column=1)
+        self.chess_think_depth_label.grid(row=4, column=1)
+        self.radio_button_gobang.grid(row=5, column=0)
+        self.radio_button_chess.grid(row=5, column=1)
+        self.radio_button_grab.grid(row=5, column=2)
 
     def start_detect_cmd(self):
         self.detect_button.grid_forget()
-        self.min_threshold_scale.grid(row=3, column=1)
-        self.min_threshold_label.grid(row=4, column=1)
-        self.max_threshold_scale.grid(row=5, column=1)
-        self.max_threshold_label.grid(row=6, column=1)
-        self.connect_button.grid(row=7, column=1)
+        self.chess_think_depth_scale.grid(row=3, column=1)
+        self.chess_think_depth_label.grid(row=4, column=1)
 
         self.radio_button_gobang = tkinter.Radiobutton(self.root, text='五子棋', variable=self.game_mode, value=1)
-        self.radio_button_gobang.grid(row=8, column=0)
+        self.radio_button_gobang.grid(row=5, column=0)
 
         self.radio_button_chess = tkinter.Radiobutton(self.root, text='象棋', variable=self.game_mode, value=2)
-        self.radio_button_chess.grid(row=8, column=1)
+        self.radio_button_chess.grid(row=5, column=1)
 
         self.radio_button_grab = tkinter.Radiobutton(self.root, text='物体抓取', variable=self.game_mode, value=3)
-        self.radio_button_grab.grid(row=8, column=2)
+        self.radio_button_grab.grid(row=5, column=2)
+
+        self.connect_button.grid(row=6, column=1)
 
         self.detect()
 
@@ -244,13 +234,9 @@ class DetecterWindow(Observable):
             path_ = path_.replace("/", "\\")  # 实际在代码中执行的路径为“\“ 所以替换一下
             self.path.set(path_)
 
-    def set_canny_min_threshold(self, value):
-        self.min_threshold_label.config(text='当前最小阈值： ' + value)
-        self.canny_min_threshold = int(value)
-
-    def set_canny_max_threshold(self, value):
-        self.max_threshold_label.config(text='当前最大阈值： ' + value)
-        self.canny_max_threshold = int(value)
+    def set_chess_think_depth(self, value):
+        self.chess_think_depth_label.config(text='象棋AI思考步数，步数越多，难度越高，超过5步会等较长时间。当前思考步数：' + value)
+        self.chess_think_depth = int(value)
 
     def detect(self):
         pre_img = self.get_video_frame()
@@ -271,8 +257,7 @@ class DetecterWindow(Observable):
                 LOG.debug(f"相邻两帧像素差异最大值大于一百二:{max_diff}")
                 continue
 
-            focus_image, has_res = focus_finder.find_focus(cur_img, self.canny_min_threshold,
-                                                           self.canny_max_threshold)
+            focus_image, has_res = focus_finder.find_focus(cur_img)
 
             if has_res:
                 res_img, yolo_list = self.self_yolo.detect(focus_image)

@@ -797,21 +797,21 @@ class RobotSerialPortWindow:
             return
         data = "{#004P1000T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.1)
-        self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.3)
+        time.sleep(0.21)
+        # self.serial.write(data[0:-1].encode(self.encoding))
+        # time.sleep(0.3)
 
         data = "{#003P2000T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.1)
-        self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.3)
+        time.sleep(0.21)
+        # self.serial.write(data[0:-1].encode(self.encoding))
+        # time.sleep(0.3)
 
         data = "{#003P1000T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.1)
-        self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.3)
+        time.sleep(0.21)
+        # self.serial.write(data[0:-1].encode(self.encoding))
+        # time.sleep(0.3)
 
     # 气泵放
     def suckdown(self):
@@ -819,15 +819,15 @@ class RobotSerialPortWindow:
             return
         data = "{#004P2200T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.1)
-        self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.3)
+        time.sleep(0.21)
+        # self.serial.write(data[0:-1].encode(self.encoding))
+        # time.sleep(0.3)
 
-        data = "{#004P1500T0200!}\n"
+        data = "{#004P1500T0100!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.1)
-        self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.3)
+        time.sleep(0.11)
+        # self.serial.write(data[0:-1].encode(self.encoding))
+        # time.sleep(0.3)
 
     # 机械臂运动
     def robotrun(self, offset, t=0):
@@ -845,7 +845,7 @@ class RobotSerialPortWindow:
                 delta = np.array(self.last_angle_list) - np.array([angle0, angle1, angle2])
                 delta = map(abs, delta)
                 t = max(delta) * self.per_angle_time
-                t = t + offset_len * 4  # 越远会越抖，慢一点
+                t = t + offset_len ** 2 / 10000  # 越远会越抖，慢一点
                 if t > 4000:
                     t = 4000
                 if t < 300:
