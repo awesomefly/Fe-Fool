@@ -12,7 +12,7 @@ class FocusFinder(object):
         self.pre_max_length = 0
         self.is_first = True
 
-    def find_focus(self, img, min_threshold=40, max_threshold=250):
+    def find_focus(self, img, min_threshold=30, max_threshold=250):
         source_img = img.copy()
         img = cv2.GaussianBlur(img, (3, 3), 0, 0)
 
