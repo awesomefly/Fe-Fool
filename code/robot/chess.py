@@ -485,7 +485,7 @@ class Chess():
             elif time.time() - start_time > 4:
                 play_sound_thread("wait")
 
-        if score == MATE_UPPER:
+        if score >= MATE_UPPER:
             self.do_checkmate()
             res = 3
 

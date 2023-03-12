@@ -803,7 +803,7 @@ class RobotSerialPortWindow:
 
         data = "{#003P2000T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
-        time.sleep(0.21)
+        time.sleep(0.4)
         # self.serial.write(data[0:-1].encode(self.encoding))
         # time.sleep(0.3)
 

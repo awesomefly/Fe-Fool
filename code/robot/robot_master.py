@@ -29,7 +29,7 @@ from robot.robot_ik import inverse_kinematics
 # 五子棋物理参数
 WIDTH_GOBANG = 294  # 五子棋盘总宽度
 LENGTH_GOBANG = 290  # 五子棋盘总长度
-HIGH_GOBANG = 5  # 五子棋棋盘高度
+HIGH_GOBANG = 8  # 五子棋棋盘+棋子高度
 WIDTH_ERR_GOBANG = 23  # 五子棋盘内外边框间距(宽度方向)
 LENGTH_ERR_GOBANG = 21  # 五子棋盘内外边框间距(长度方向)
 ROW_GOBANG = 13  # 五子棋盘行数(宽度方向)
@@ -365,7 +365,6 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         self.start_point = START_POINT_CHESS
         self.get_our_class()
 
-
     # 玩家的象棋类别，红子(先手)
     def get_our_class(self):
         file_path = GlobalVar.get_value('DATA_YAML_PATH')
@@ -618,15 +617,19 @@ class GrabRobotMaster(RobotMaster):
                 # 只抓取用户配置了的物体
                 if _class in GrabRobotMaster.MAP_CLASS_2_POS:
                     # 先判断机械臂有没有解
-                    if not self.is_robot_has_ik((coordinate_x, coordinate_y, GrabRobotMaster.HIGH)):
+                    if not self.is_robot_has_ik((coordinate_x, coordinate_y,
+                                                 GrabRobotMaster.HIGH + GrabRobotMaster.MAP_CLASS_2_POS[_class][
+                                                     'high'])):
                         play_sound("res")
                         return
 
                     self.working_flag = True
-                    self.robot_do_grab(coordinate_x, coordinate_y, GrabRobotMaster.HIGH, _class)
+                    self.robot_do_grab(coordinate_x, coordinate_y,
+                                       GrabRobotMaster.HIGH + GrabRobotMaster.MAP_CLASS_2_POS[_class]['high'], _class)
                     self.working_flag = False
 
-                    self.robot_back()
+                    if len(coordinate_list) < 2:
+                        self.robot_back()
                     break
 
     # 连续3帧物品位置的差异值小于工作台总宽的1/20，说明结果可信，如果识别精度不高，可以加上此步骤
