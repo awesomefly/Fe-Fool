@@ -51,7 +51,7 @@ class YoloDetecter():
                  weights='../yolov5/runs/train/exp/weights/best.pt',
                  data=ROOT / 'data/self_data.yaml',  # dataset.yaml path
                  imgsz=(640, 640),  # inference size (height, width)
-                 conf_thres=0.70,  # confidence threshold
+                 conf_thres=0.80,  # confidence threshold
                  iou_thres=0.45,  # NMS IOU threshold
                  max_det=100,  # maximum detections per image
                  device='cpu',  # cuda device, i.e. 0 or 0,1,2,3 or cpu

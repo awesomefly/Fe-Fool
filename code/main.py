@@ -3,6 +3,10 @@ from tkinter import Tk, Button, Toplevel
 from multiprocessing import Value, freeze_support
 import threading
 
+from robot.window_robot import RobotSerialPortWindow
+from robot.window_detection import DetecterWindow
+from robot.window_generate import GeneraterWindow
+from robot.window_train import TrainModelWindow
 
 class MainWindow:
     def __init__(self):
@@ -43,7 +47,6 @@ class MainWindow:
             serialport_process.start()
 
     def serialport(self):
-        from robot.window_robot import RobotSerialPortWindow
         RobotSerialPortWindow(self.window_flag_bit)
 
     def button_detecter(self):
@@ -58,7 +61,6 @@ class MainWindow:
 
     def detecter_run(self):
         root = Toplevel(self.root)
-        from robot.window_detection import DetecterWindow
         DetecterWindow(root, self.window_flag_bit)
 
     def button_generater(self):
@@ -74,7 +76,6 @@ class MainWindow:
 
     def generater_run(self):
         root = Toplevel(self.root)
-        from robot.window_generate import GeneraterWindow
         GeneraterWindow(root, self.window_flag_bit)
 
     def button_yolodata(self):
@@ -99,7 +100,6 @@ class MainWindow:
         if self.window_flag_bit.value & (1 << 4) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 4)
             root = Toplevel(self.root)
-            from robot.window_train import TrainModelWindow
             TrainModelWindow(root, self.window_flag_bit)
 
 
