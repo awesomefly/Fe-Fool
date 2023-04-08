@@ -14,17 +14,15 @@ import socket
 import numpy as np
 from math import sqrt
 
-from robot.tools import YamlHandler, CurveFitting
+from robot.tools import YamlHandler, FunctionFitter
 from robot.robot_ik import inverse_kinematics
 from robot import SERVER_ADDR, ROOT, LOG
 
 ROBOT_PARAMS = ROOT + '/robot_params.yaml'
 
 PER_ANGLE_TIME = 15  # 机械臂运行速度：舵机转动一度需要的时间，ms
-
-INIT_ENGINE_0 = 1500
-INIT_ENGINE_1 = 1500
-INIT_ENGINE_2 = 1500
+INIT_ENGINE = 1500
+ENGINE_NUM = 3
 
 NINE_POINT = [[120, 100, 5], [120, 0, 5], [120, -100, 5],
               [198, -100, 5], [198, 0, 5], [198, 100, 5],
@@ -48,13 +46,10 @@ class RobotSerialPortWindow:
         self.updatethread.start()
 
         self.working__flag = True
-        self.engine_0 = 1500
-        self.len_calibration_0 = 0
-        self.len_calibration_1 = 0
-        self.len_calibration_2 = 0
-        self.read_params()
+        self.load_fit()
+
         self.last_angle_list = [0.0, 0.0, 0.0]
-        self.last_engine_list = [INIT_ENGINE_0, INIT_ENGINE_1, INIT_ENGINE_2]
+        self.last_engine_list = [INIT_ENGINE, INIT_ENGINE, INIT_ENGINE]
         self.per_angle_time = PER_ANGLE_TIME  # 舵机转动一度需要的时间，ms
 
         self.window_flag_bit = window_flag_bit
@@ -244,7 +239,7 @@ class RobotSerialPortWindow:
 
         spacelabel = tk.Label(operateframeright, width=5, height=1)
         spacelabel.pack()
-        self.calcparambutton = tk.Button(operateframeright, text='计算内参', \
+        self.calcparambutton = tk.Button(operateframeright, text='机械臂校准', \
                                          width=20, height=1, command=self.calcparam)
         self.calcparambutton.pack()
 
@@ -265,7 +260,7 @@ class RobotSerialPortWindow:
         self.root.withdraw()  # 一次运行中多次开关此界面会造成内存泄露，但是使用destroy()会卡死GUI，只能后续再改进了
 
     def calcparam(self):
-        if self.calcparambutton['text'] == '计算内参':
+        if self.calcparambutton['text'] == '机械臂校准':
             if not self.serial.isOpen():
                 tk.messagebox.showerror(title='错误', message='请先连接机械臂', parent=self.root)
                 return
@@ -308,38 +303,30 @@ class RobotSerialPortWindow:
             calcbutton = tk.Button(self.paramwindow, text='停止校准', command=self.stop_calc)
             calcbutton.grid(row=6, column=1, ipadx=20, ipady=10, padx=20, pady=20, sticky=('e', 'w'))
 
-            self.angle_params_0 = []
-            self.angle_params_1 = []
-            self.angle_params_2 = []
-
             self.len_params = []
 
-            self.engine_params_0 = []
-            self.engine_params_1 = []
-            self.engine_params_2 = []
+            self.engine_real = np.zeros((3, 9))
+            self.engine_model = np.zeros((3, 9))
+
         else:
             self.close_paramwindow()
 
     def close_paramwindow(self):
-        self.stop_calc
+        self.stop_calc()
         self.paramwindow.destroy()
-        self.calcparambutton['text'] = '计算内参'
+        self.calcparambutton['text'] = '机械臂校准'
 
     def stop_calc(self):
         self.point_count = 0
-        self.angle_params_0 = []
-        self.angle_params_1 = []
-        self.angle_params_2 = []
-
         self.len_params = []
+        self.engine_real = np.zeros((3, 9))
+        self.engine_model = np.zeros((3, 9))
 
-        self.engine_params_0 = []
-        self.engine_params_1 = []
-        self.engine_params_2 = []
         self.restoration()
 
     def testninebuttoncmd(self):
         if self.connecting:
+            self.stop_calc()
             self.do_first_point()
             time.sleep(2)
             for i in range(8):
@@ -351,10 +338,14 @@ class RobotSerialPortWindow:
         pass
 
     def do_first_point(self):
+        self.stop_calc()
         if self.connecting:
             self.point_count = 0
             offset = NINE_POINT[self.point_count]
             self.robotrun(offset)
+            for i in range(ENGINE_NUM):
+                self.engine_model[i][self.point_count] = self.angle2engine(self.last_angle_list[i], i)
+
         else:
             tk.messagebox.showerror(title='无法发送', message='机械臂已经断开连接', parent=self.paramwindow)
         pass
@@ -367,6 +358,8 @@ class RobotSerialPortWindow:
             offset = NINE_POINT[self.point_count]
             self.robotrun([offset[0], offset[1], offset[2] + 30])
             self.robotrun(offset)
+            for i in range(ENGINE_NUM):
+                self.engine_model[i][self.point_count] = self.angle2engine(self.last_angle_list[i], i)
         else:
             tk.messagebox.showerror(title='无法发送', message='机械臂已经断开连接', parent=self.paramwindow)
         pass
@@ -378,13 +371,8 @@ class RobotSerialPortWindow:
             return
         offset_len = sqrt(offset[0] ** 2 + offset[1] ** 2 + offset[2] ** 2)
 
-        self.angle_params_0.append(angle0)
-        self.angle_params_1.append(angle1)
-        self.angle_params_2.append(-angle2)
-
-        self.engine_params_0.append(self.last_engine_list[0])
-        self.engine_params_1.append(self.last_engine_list[1])
-        self.engine_params_2.append(self.last_engine_list[2])
+        for i in range(ENGINE_NUM):
+            self.engine_real[i][self.point_count] = self.last_engine_list[i]
         self.len_params.append(offset_len)
 
         self.rectext.config(state=tk.NORMAL)
@@ -394,56 +382,43 @@ class RobotSerialPortWindow:
         self.rectext.update()
 
         if self.point_count < 8:
-            tk.messagebox.showinfo(title='成功添加数据', message='成功添加数据，点击缺点将校准下一个点',
+            tk.messagebox.showinfo(title='成功添加数据', message='成功添加数据，点击确定将校准下一个点',
                                    parent=self.paramwindow)
             self.do_next_point()
 
         else:
             self.calcbuttoncmd()
-            tk.messagebox.showinfo(title='成功计算内参', message='9点已经全部校准！',
+            tk.messagebox.showinfo(title='成功机械臂校准', message='9点已经全部校准！',
                                    parent=self.paramwindow)
             self.restoration()
 
     def calcbuttoncmd(self):
-        self.angle_params_0 = np.array(self.angle_params_0)
-        self.angle_params_1 = np.array(self.angle_params_1)
-        self.angle_params_2 = np.array(self.angle_params_2)
+        # 边界值处理，设置长度小于最小跟大于最长的值
+        self.len_params.append(0)
+        self.len_params.append(500)
+
         self.len_params = np.array(self.len_params)
-        self.engine_params_0 = np.array(self.engine_params_0)
-        self.engine_params_1 = np.array(self.engine_params_1)
-        self.engine_params_2 = np.array(self.engine_params_2)
 
-        fitter = CurveFitting()
-        res = fitter.calc(self.angle_params_0, self.len_params, self.engine_params_0)
-        self.write_params(res, 0)
-        res = fitter.calc(self.angle_params_1, self.len_params, self.engine_params_1)
-        self.write_params(res, 1)
-        res = fitter.calc(self.angle_params_2, self.len_params, self.engine_params_2)
-        self.write_params(res, 2)
+        for i in range(ENGINE_NUM):
+            engine_err = self.engine_real[i] - self.engine_model[i]
+            LOG.info(f"engine_real{i}: {self.engine_real[i]}")
+            LOG.info(f"engine_model{i}: {self.engine_model[i]}")
 
-        self.read_params()
+            new_engine_err = np.append(engine_err, [engine_err[1], engine_err[8]])
+            fit = FunctionFitter(self.len_params, new_engine_err)
 
-    def write_params(self, res, num):
-        LOG.debug(f"结果：{res[0]}, {res[1]}")
-        hangler = YamlHandler(ROBOT_PARAMS)
-        data = hangler.read_yaml()
-        data['len_calibration_' + str(num)] = float(res[0])
-        data['init_engine_' + str(num)] = int(res[1])
-        hangler.write_yaml(data)
+            fit.save(ROOT +'/calibration' + str(i) + '.pickle')
+            # fit.plot()
+        self.load_fit()
 
-    def read_params(self):
-        global INIT_ENGINE_0, INIT_ENGINE_1, INIT_ENGINE_2
-        data = YamlHandler(ROBOT_PARAMS).read_yaml()
-        INIT_ENGINE_0 = data['init_engine_0']
-        INIT_ENGINE_1 = data['init_engine_1']
-        INIT_ENGINE_2 = data['init_engine_2']
-        self.len_calibration_0 = data['len_calibration_0']
-        self.len_calibration_1 = data['len_calibration_1']
-        self.len_calibration_2 = -data['len_calibration_2']
+    def load_fit(self):
+        self.loaded_fit0 = FunctionFitter.load(ROOT + '/calibration0.pickle')
+        self.loaded_fit1 = FunctionFitter.load(ROOT + '/calibration1.pickle')
+        self.loaded_fit2 = FunctionFitter.load(ROOT + '/calibration2.pickle')
 
     def send_last_send(self):
         self.sendmsg(engine0=self.last_engine_list[0], engine1=self.last_engine_list[1],
-                     engine2=self.last_engine_list[2], run_time=100)
+                     engine2=self.last_engine_list[2], run_time=0)
         self.rectext.config(state=tk.NORMAL)
         self.rectext.insert(tk.END, ','.join([str(s) for s in self.last_engine_list]) + '\n')
         self.rectext.config(state=tk.DISABLED)
@@ -451,27 +426,27 @@ class RobotSerialPortWindow:
         self.rectext.update()
 
     def addbutton0cmd(self):
-        self.last_engine_list[0] = self.last_engine_list[0] + 5
+        self.last_engine_list[0] = self.last_engine_list[0] + 7
         self.send_last_send()
 
     def addbutton1cmd(self):
-        self.last_engine_list[1] = self.last_engine_list[1] + 5
+        self.last_engine_list[1] = self.last_engine_list[1] + 7
         self.send_last_send()
 
     def addbutton2cmd(self):
-        self.last_engine_list[2] = self.last_engine_list[2] + 5
+        self.last_engine_list[2] = self.last_engine_list[2] + 7
         self.send_last_send()
 
     def reducebutton0cmd(self):
-        self.last_engine_list[0] = self.last_engine_list[0] - 5
+        self.last_engine_list[0] = self.last_engine_list[0] - 7
         self.send_last_send()
 
     def reducebutton1cmd(self):
-        self.last_engine_list[1] = self.last_engine_list[1] - 5
+        self.last_engine_list[1] = self.last_engine_list[1] - 7
         self.send_last_send()
 
     def reducebutton2cmd(self):
-        self.last_engine_list[2] = self.last_engine_list[2] - 5
+        self.last_engine_list[2] = self.last_engine_list[2] - 7
         self.send_last_send()
 
     def baudrateselectcmd(self, *args):
@@ -829,18 +804,22 @@ class RobotSerialPortWindow:
         # self.serial.write(data[0:-1].encode(self.encoding))
         # time.sleep(0.3)
 
+    def angle2engine(self, angle, num):
+        if num == 0 or num == 1:
+            return INIT_ENGINE - int(angle * 7.28)
+        else:
+            return INIT_ENGINE + int(angle * 7.28)
+
     # 机械臂运动
     def robotrun(self, offset, t=0):
         hasik, angle0, angle1, angle2 = inverse_kinematics(offset[0], offset[1], offset[2])
         if hasik:
             offset_len = sqrt(offset[0] ** 2 + offset[1] ** 2 + offset[2] ** 2)
-            angle0 = angle0 + offset_len * self.len_calibration_0
-            angle1 = angle1 + offset_len * self.len_calibration_1
-            angle2 = angle2 + offset_len * self.len_calibration_2
             # 机械臂间隙太大，2轴超过90度需要补偿一些
             if angle2 > 88:
                 angle2 = angle2 + 3
             LOG.debug(f"机械臂角度 angle0:{angle0}, angle1:{angle1}, angle2:{angle2}")
+
             if t == 0:
                 delta = np.array(self.last_angle_list) - np.array([angle0, angle1, angle2])
                 delta = map(abs, delta)
@@ -850,9 +829,12 @@ class RobotSerialPortWindow:
                     t = 4000
                 if t < 300:
                     t = 300
-            self.sendmsg(engine0=INIT_ENGINE_0 - int(angle0 * 7.28), engine1=INIT_ENGINE_1 - int(angle1 * 7.28),
-                         engine2=INIT_ENGINE_2 + int(angle2 * 7.28),
-                         run_time=int(t))
+
+            engine0 = self.angle2engine(angle0, 0) + self.loaded_fit0.f(offset_len)
+            engine1 = self.angle2engine(angle1, 1) + self.loaded_fit1.f(offset_len)
+            engine2 = self.angle2engine(angle2, 2) + self.loaded_fit2.f(offset_len)
+            # LOG.debug(f"机械臂参数 engine0:{engine0}, engine1:{engine1}, engine2:{engine2}")
+            self.sendmsg(engine0=engine0, engine1=engine1, engine2=engine2, run_time=int(t))
             self.last_angle_list = [angle0, angle1, angle2]
             return True
         else:
@@ -866,8 +848,8 @@ class RobotSerialPortWindow:
         if t > 4000:
             t = 4000
 
-        self.sendmsg(engine0=int(-angle0 * 7.28) + INIT_ENGINE_0, engine1=INIT_ENGINE_1 - int(angle1 * 7.28),
-                     engine2=INIT_ENGINE_2 + int(angle2 * 7.28),
+        self.sendmsg(engine0=int(-angle0 * 7.28) + INIT_ENGINE, engine1=INIT_ENGINE - int(angle1 * 7.28),
+                     engine2=INIT_ENGINE + int(angle2 * 7.28),
                      run_time=t)
         self.last_angle_list = [angle0, angle1, angle2]
 
@@ -952,16 +934,16 @@ class RobotSerialPortWindow:
                 self.conn.send("done".encode())  # 返回数据
 
     # 串口发送指令到机械臂
-    def sendmsg(self, engine0=INIT_ENGINE_0, engine1=INIT_ENGINE_1, engine2=INIT_ENGINE_2, engine3=1500, run_time=1500):
+    def sendmsg(self, engine0=INIT_ENGINE, engine1=INIT_ENGINE, engine2=INIT_ENGINE, engine3=INIT_ENGINE, run_time=1000):
         if not self.serial.isOpen():
             return
-        data = "{#000P" + str(engine0) + "T" + str(run_time) + "!" + \
-               "#001P" + str(engine1) + "T" + str(run_time) + "!" + \
-               "#002P" + str(engine2) + "T" + str(run_time) + "!" + \
-               "#003P" + str(engine3) + "T" + str(run_time) + "!" + "}\n"
+        data = "{#000P" + str(int(engine0)) + "T" + str(int(run_time)) + "!" + \
+               "#001P" + str(int(engine1)) + "T" + str(int(run_time)) + "!" + \
+               "#002P" + str(int(engine2)) + "T" + str(int(run_time)) + "!" + \
+               "#003P" + str(int(engine3)) + "T" + str(int(run_time)) + "!" + "}\n"
         # LOG.debug(data.encode(self.encoding))
         self.serial.write(data.encode(self.encoding))
-        time.sleep(run_time / 1000.0 + 0.2)
+        time.sleep(run_time / 1000.0 + 0.1)
         self.last_engine_list = [engine0, engine1, engine2]
 
 

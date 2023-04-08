@@ -2,15 +2,16 @@
 import time
 import numpy as np
 import cv2
+import os
 import tkinter
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 
 from rembg import remove
 from rembg.session_factory import new_session
 from robot.image_find_focus import FocusFinder
-from robot.tools import get_cameras,YamlHandler
-from robot import LOG,PARAMS_YAML,IMAGE_DATA_PATH
+from robot.tools import get_cameras, YamlHandler
+from robot import LOG, PARAMS_YAML, IMAGE_DATA_PATH
 
 DATA_NAME = YamlHandler(PARAMS_YAML).read_yaml()['data_name']  # image_data文件夹下自己的数据集文件名
 BACKGROUND_INPUT_PATH = IMAGE_DATA_PATH + DATA_NAME + "/background_imgs/"
@@ -75,9 +76,13 @@ class GeneraterWindow:
         self.session = new_session("u2netp")
 
         self.window_flag_bit = window_flag_bit
+        if not os.path.exists(BACKGROUND_INPUT_PATH):
+            os.makedirs(BACKGROUND_INPUT_PATH)
+        if not os.path.exists(FOREGROUND_INPUT_PATH):
+            os.makedirs(FOREGROUND_INPUT_PATH)
         self.window(root)
 
-    def window(self,root):
+    def window(self, root):
         self.root = root
         self.root.config(width=400, height=1000)
         self.root.title("数据集制作")
@@ -98,12 +103,11 @@ class GeneraterWindow:
         self.target_panel = tkinter.Label(self.root)
         self.name_input_label = tkinter.Label(self.root, text='请输入该物品的名字:', font=12)
         self.inp_name = tkinter.Entry(self.root)
-        self.class_input_label = tkinter.Label(self.root, text='请输入该物品对应的类别序号:', font=12)
+        self.class_input_label = tkinter.Label(self.root, text='请输入该物品对应的类别序号(从0开始递增):', font=12)
         self.inp_class = tkinter.Entry(self.root)
 
         self.save_background_button = tkinter.Button(self.root, text='保存背景', command=self.save_background_img)
         self.save_foreground_button = tkinter.Button(self.root, text='保存物体', command=self.save_foreground_img)
-
 
     def select_camera(self, *args):
         self.select_camera_label.grid_forget()
@@ -168,17 +172,29 @@ class GeneraterWindow:
                     tk_show_img(self.camera_panel, focus_image)
                     if self.save_background_flag == True:
                         self.save_background_flag = False
-                        cv2.imwrite(BACKGROUND_INPUT_PATH + str(time.time()) + '.png', focus_image)
-                        LOG.debug("背景创建成功")
+                        name = BACKGROUND_INPUT_PATH + str(time.time()) + '.png'
+                        cv2.imwrite(name, focus_image)
+                        messagebox.showinfo('提示', '背景创建成功', parent=self.root)
 
                     if self.save_foreground_flag == True:
                         self.save_foreground_flag = False
+                        if not self.inp_name.get() or not self.inp_class.get():
+                            messagebox.showerror('错误', '未输入物体名字或种类', parent=self.root)
+                            continue
+                        try:
+                            inp_class = int(self.inp_class.get())
+                        except:
+                            messagebox.showerror('错误', '种类必须是数字', parent=self.root)
+                            continue
                         output = self.remove_background(focus_image)
                         output = crop_image(output)
                         if output.shape[0] > 20 and output.shape[1] > 20:
+                            messagebox.showinfo('提示',
+                                                str(self.inp_name.get()) + '已成功生成，序号为：' + str(inp_class),
+                                                parent=self.root)
                             LOG.debug(f"物体扣除成功，文件名 : {self.inp_name.get()}")
                             p_name = FOREGROUND_INPUT_PATH + str(self.inp_name.get()) + '-' + str(
-                                self.inp_class.get()) + '-' + str(time.time()) + '.png'
+                                inp_class) + '-' + str(time.time()) + '.png'
                             cv2.imwrite(p_name, output)
                             tk_show_img(self.target_panel, output)
 

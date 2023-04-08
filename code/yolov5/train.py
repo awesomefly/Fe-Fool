@@ -474,7 +474,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     shutil.copyfile(opt.data, str(save_dir) + '\data.yaml')
     if opt.root is not None:
         messagebox.showinfo(title='提示',
-                            message=f'模型已生成，mAP*值为{round(results[3], 3)}。(该值越大越好，一般大于0.85为宜)',
+                            message=f'模型已生成，mAP*值为{round(results[3], 3)}。(该值越大越好，一般大于0.8为宜)',
                             parent=opt.root)
     return results
 
