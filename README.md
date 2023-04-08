@@ -47,7 +47,7 @@ ps：如果需要自行安装其他版本torch，[pytorch官网](https://pytorch
 
 ## (3)接线
 
-![image](https://gitee.com/Kkoutianwu/Fe-Fool/blob/linux/%E5%87%86%E5%A4%87%E6%96%87%E4%BB%B6/%E6%8E%A5%E7%BA%BF%E7%A4%BA%E6%84%8F%E5%9B%BE.png)
+![image](https://gitee.com/Kkoutianwu/Fe-Fool/raw/linux/%E5%87%86%E5%A4%87%E6%96%87%E4%BB%B6/%E6%8E%A5%E7%BA%BF%E7%A4%BA%E6%84%8F%E5%9B%BE.png)
 
 ## (4)连接机械臂
 
@@ -138,7 +138,7 @@ ps:指令中符号必须是英文符号
 
 1、滑轨角度不合适会导致棋子跌落或者棋子不下滑，需调整，
 2、五子棋模式棋子下滑后会上翻：可用热熔胶建立一横杠挡住，如图
-![image](https://gitee.com/Kkoutianwu/Fe-Fool/blob/linux/%E5%87%86%E5%A4%87%E6%96%87%E4%BB%B6/%E6%BB%91%E6%A7%BD%E6%A8%AA%E6%9D%A0.jpg)
+![image](https://gitee.com/Kkoutianwu/Fe-Fool/raw/linux/%E5%87%86%E5%A4%87%E6%96%87%E4%BB%B6/%E6%BB%91%E6%A7%BD%E6%A8%AA%E6%9D%A0.jpg)
 
 ## 识别问题
 
@@ -148,4 +148,5 @@ ps:指令中符号必须是英文符号
 
 ## 软件报错
 1、训练时报错 页面文件太小，无法完成操作，参考链接：<https://blog.csdn.net/Together_CZ/article/details/126545991>
+
 2、**源码用户需注意**：在windows下播放音频的模块`playsound`会抛出异常,是由于windows下utf-16编码的原因，需修改playsound源码,参考链接：<https://blog.csdn.net/lj606/article/details/122354958>
