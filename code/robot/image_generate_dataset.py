@@ -38,7 +38,7 @@ LABELS_HAND_TRAIN = IMAGE_DATA_PATH + "hands/labels/train/"
 IMAGES_HAND_VAL = IMAGE_DATA_PATH + "hands/images/val/"
 LABELS_HAND_VAL = IMAGE_DATA_PATH + "hands/labels/val/"
 
-PER_BACKGROUND_NUM = 10
+PER_BACKGROUND_NUM = 166
 PER_SAMPLE_NUM = 20
 
 
@@ -116,12 +116,10 @@ class YoloDataProducer(object):
 
         i = 0
         sorted_map = dict(sorted(self.class_map.items(), key=lambda x: x[0]))
-        print(sorted_map)
         for key in sorted_map.keys():
             if key != i:
-                print(sorted_map, key, i)
                 messagebox.showerror('错误', f'数据集的序号没有按照从0开始的严格自增的规则，请修改序号为 {key} 的图片',
-                                     self.root)
+                                     parent=self.root)
                 return False
             i += 1
         return True
@@ -168,7 +166,7 @@ class YoloDataProducer(object):
     def produce(self):
         if len(self.foreground_list_map) == 0:
             LOG.error("无数据可生成数据集")
-            messagebox.showerror('错误', '无数据可生成数据集', self.root)
+            messagebox.showerror('错误', '无数据可生成数据集', parent=self.root)
             return
         random.shuffle(self.background_list)
 
@@ -190,14 +188,13 @@ class YoloDataProducer(object):
         #  TMD,这个progressbar没法在子线程中更新，恶心
         last_num = 0
         while self.end_flag == False:
-            show_progress(self.root, self.progressbar, (self.produce_count-last_num )* 80 / (step-1))
+            show_progress(self.root, self.progressbar, (self.produce_count - last_num) * 80 / (step - 1))
             last_num = self.produce_count
             time.sleep(1)
-            print(self.produce_count-last_num,step)
         for p in pool:
             p.join()
 
-    def produce_thread(self, background_list,thread_count):
+    def produce_thread(self, background_list, thread_count):
         for background_name in background_list:
             img_background = cv2.imread(background_name)
             for i in range(self.per_num):
@@ -213,8 +210,7 @@ class YoloDataProducer(object):
     # 写yolo的yaml文件
     def write_yolo_yaml(self):
         if len(self.class_map) > 0:
-            file_path = ROOT + "../yolov5/data/self_data.yaml"  # code
-            # file_path = ROOT + "yolov5/data/self_data.yaml"  # exe
+            file_path = ROOT + "../yolov5/data/self_data.yaml"
             data = YamlHandler(file_path).read_yaml()
             LOG.debug(f"yaml修改前数据：{data}")
             # 将data数据写入yaml
@@ -222,7 +218,8 @@ class YoloDataProducer(object):
             data['nc'] = len(sorted_map)
             name_values = sorted_map.values()
             data['names'] = list(name_values)
-            data['path'] = IMAGE_DATA_PATH.replace(ROOT, '', 1) + DATA_NAME + '/output_yolo'
+            data['path'] = IMAGE_DATA_PATH.replace(ROOT, '', 1) + DATA_NAME + '/output_yolo'  # code
+            # data['path'] = IMAGE_DATA_PATH.replace(ROOT + "../", '', 1) + DATA_NAME + '/output_yolo'  # exe
             YamlHandler(file_path).write_yaml(data)
             LOG.debug(f"yaml修改后数据：{data}")
 

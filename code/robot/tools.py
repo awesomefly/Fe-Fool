@@ -237,3 +237,39 @@ def copyfile(source_path, target_path):
                 copy(src_file, target_path)
 
     LOG.info('复制成功')
+
+
+import pickle
+import numpy as np
+from scipy.interpolate import interp1d
+
+class FunctionFitter:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.f = interp1d(self.x, self.y)
+
+
+    def plot(self):
+        import matplotlib.pyplot as plt
+        xx = np.linspace(self.x.min(), self.x.max(), 1000)
+        yy = self.f(xx)
+        plt.rcParams['font.sans-serif'] = ['SimHei']
+        plt.rcParams['axes.unicode_minus'] = False
+        plt.plot(self.x, self.y, 'o', label='误差')
+        plt.plot(xx, yy, label='拟合的误差函数')
+        plt.title('关闭该窗口继续操作')
+        plt.legend()
+        plt.show()
+
+    def save(self, filename):
+        with open(filename, 'wb') as file:
+            pickle.dump(self.f, file)
+
+    @classmethod
+    def load(cls, filename):
+        with open(filename, 'rb') as file:
+            f = pickle.load(file)
+        x = f.x
+        y = f.y
+        return cls(x, y)

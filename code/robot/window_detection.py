@@ -254,7 +254,7 @@ class DetecterWindow(Observable):
             max_diff = np.max(diff)
             pre_img = cur_img
             if max_diff > 120:
-                LOG.debug(f"相邻两帧像素差异最大值大于一百二:{max_diff}")
+                # LOG.debug(f"相邻两帧像素差异最大值大于一百二:{max_diff}")
                 continue
 
             focus_image, has_res = focus_finder.find_focus(cur_img)
