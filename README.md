@@ -7,9 +7,7 @@
 > exe可执行文件：[点击下载](https://gitee.com/Kkoutianwu/Fe-Fool-exe)
 >
 > 想学习源码的同学，可以加入我的知识星球，向我提问。
-![image](https://gitee.com/Kkoutianwu/Fe-Fool/blob/linux/%E7%9F%A5%E8%AF%86%E6%98%9F%E7%90%83%E4%BA%8C%E7%BB%B4%E7%A0%81.png)
-
-[toc]
+![image](https://gitee.com/Kkoutianwu/Fe-Fool/blob/linux/QRcode.png)
 
 # 1、硬件清单
 
