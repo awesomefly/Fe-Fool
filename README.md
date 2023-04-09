@@ -2,12 +2,9 @@
 
 > 功能：五子棋、象棋、分拣（可自定义识别物体与目标坐标）
 >
-> 视频介绍：[铁憨憨](https://space.bilibili.com/109454273)
+> 视频介绍：[铁憨憨](https://www.bilibili.com/video/BV1js4y1K7cf)
 >
-> exe可执行文件：[点击下载](https://gitee.com/Kkoutianwu/Fe-Fool-exe)
->
-> 想学习源码的同学，可以加入我的知识星球，向我提问。
-![image](https://gitee.com/Kkoutianwu/Fe-Fool/raw/linux/QRcode.png)
+> exe可执行文件：https://cloud.189.cn/t/zYjiimeMbiQ3 （访问码：4afq）
 
 # 1、硬件清单
 
@@ -150,3 +147,8 @@ ps:指令中符号必须是英文符号
 1、训练时报错 页面文件太小，无法完成操作，参考链接：<https://blog.csdn.net/Together_CZ/article/details/126545991>
 
 2、**源码用户需注意**：在windows下播放音频的模块`playsound`会抛出异常,是由于windows下utf-16编码的原因，需修改playsound源码,参考链接：<https://blog.csdn.net/lj606/article/details/122354958>
+
+
+>
+> 想学习源码的同学，可以加入我的知识星球，向我提问。
+![image](https://gitee.com/Kkoutianwu/Fe-Fool/raw/linux/QRcode.png)
