@@ -102,7 +102,7 @@ class CurveFitting(object):
 
 
 def coordinate_mapping(pixel_list, physical_rows, physical_cols, pixel_rows, pixel_cols):
-    LOG.debug(f"坐标映射: {physical_rows}, {physical_cols}, {pixel_rows}, {pixel_cols}")
+    # LOG.debug(f"坐标映射: {physical_rows}, {physical_cols}, {pixel_rows}, {pixel_cols}")
     data = []
     for x, y, c in pixel_list:
         x = x * physical_rows / pixel_rows

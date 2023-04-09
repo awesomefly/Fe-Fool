@@ -53,12 +53,12 @@ class FocusFinder(object):
             self.is_first = False
 
         if abs(self.pre_max_length - max_length) > self.allowed_moving_girth:
-            LOG.debug("物体入侵")
+            # LOG.debug("物体入侵")
             self.pre_max_length = max_length
             return 0, False
 
         if np.max(abs(np.array(sort_corner_list) - np.array(self.pre_corner_point))) > self.allowed_moving_length:
-            LOG.warning(f"角点错误:{sort_corner_list}, {self.pre_corner_point}")
+            # LOG.warning(f"角点错误:{sort_corner_list}, {self.pre_corner_point}")
             self.pre_corner_point = sort_corner_list
             return 0, False
 

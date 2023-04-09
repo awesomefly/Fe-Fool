@@ -66,7 +66,7 @@ class RobotMaster(Observer):
 
     # window_detection发布过来的消息在这里处理
     def receive_message(self, topic, message):
-        LOG.debug(f"received message:{topic}, {message}")
+        # LOG.debug(f"received message:{topic}, {message}")
         if topic == "safety" and self.is_start():
             if message[0] == "pause":
                 self.pause()
@@ -338,7 +338,7 @@ class GobangRobotMaster(BoardGamesRobotMaster):
 
     def find_last_down_pos(self, now_pos_set):
         our_down_pos = now_pos_set - self.history_set
-        LOG.info(f"玩家最后一次落子落子位置:{our_down_pos}")
+        # LOG.info(f"玩家最后一次落子落子位置:{our_down_pos}")
         if len(our_down_pos) == 1:
             self.count += 1
             if self.count == 3:
@@ -407,7 +407,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
             # 防止机器人一直叫唤
             if time.time() - self.last_wring_time > 8:
                 play_sound("wrong_start")
-                LOG.error(f"{time.time() - self.last_wring_time}")
+                # LOG.error(f"{time.time() - self.last_wring_time}")
                 self.last_wring_time = time.time()
             return False
         else:
@@ -573,7 +573,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         else:
             our_pick_pos = self.history_set - now_pos_set
             our_down_pos = now_pos_set - self.history_set
-            LOG.info(f"玩家最后一次落子落子位置:{our_pick_pos} 至 {our_down_pos}")
+            # LOG.info(f"玩家最后一次落子落子位置:{our_pick_pos} 至 {our_down_pos}")
             if len(our_pick_pos) == 1 and len(our_down_pos) == 1 and list(our_pick_pos)[0][-1] == list(our_down_pos)[0][
                 -1]:
                 self.count += 1
