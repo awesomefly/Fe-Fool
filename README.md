@@ -8,7 +8,7 @@
 
 # 1、硬件清单
 
-[表格下载](https://gitee.com/Kkoutianwu/Fe-Fool-exe)
+[表格下载](https://gitee.com/Kkoutianwu/Fe-Fool/blob/linux/%E5%87%86%E5%A4%87%E6%96%87%E4%BB%B6/%E7%A1%AC%E4%BB%B6%E6%B8%85%E5%8D%95.xlsx)
 
 # 2、软件运行要求：
 
