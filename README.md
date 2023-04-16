@@ -147,8 +147,3 @@ ps:指令中符号必须是英文符号
 1、训练时报错 页面文件太小，无法完成操作，参考链接：<https://blog.csdn.net/Together_CZ/article/details/126545991>
 
 2、**源码用户需注意**：在windows下播放音频的模块`playsound`会抛出异常,是由于windows下utf-16编码的原因，需修改playsound源码,参考链接：<https://blog.csdn.net/lj606/article/details/122354958>
-
-
->
-> 想学习源码的同学，可以加入我的知识星球，向我提问。
-![image](https://gitee.com/Kkoutianwu/Fe-Fool/raw/linux/QRcode.png)
