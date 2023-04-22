@@ -407,7 +407,7 @@ class RobotSerialPortWindow:
             new_engine_err = np.append(engine_err, [engine_err[1], engine_err[8]])
             fit = FunctionFitter(self.len_params, new_engine_err)
 
-            fit.save(ROOT +'/calibration' + str(i) + '.pickle')
+            fit.save(ROOT + '/calibration' + str(i) + '.pickle')
             # fit.plot()
         self.load_fit()
 
@@ -806,9 +806,9 @@ class RobotSerialPortWindow:
 
     def angle2engine(self, angle, num):
         if num == 0 or num == 1:
-            return INIT_ENGINE - int(angle * 11.11)
+            return INIT_ENGINE - int(angle * 7.28)
         else:
-            return INIT_ENGINE + int(angle * 11.11)
+            return INIT_ENGINE + int(angle * 7.28)
 
     # 机械臂运动
     def robotrun(self, offset, t=0):
@@ -848,8 +848,8 @@ class RobotSerialPortWindow:
         if t > 4000:
             t = 4000
 
-        self.sendmsg(engine0=int(-angle0 * 11.11) + INIT_ENGINE, engine1=INIT_ENGINE - int(angle1 * 11.11),
-                     engine2=INIT_ENGINE + int(angle2 * 11.11),
+        self.sendmsg(engine0=int(-angle0 * 7.28) + INIT_ENGINE, engine1=INIT_ENGINE - int(angle1 * 7.28),
+                     engine2=INIT_ENGINE + int(angle2 * 7.28),
                      run_time=t)
         self.last_angle_list = [angle0, angle1, angle2]
 
@@ -934,9 +934,19 @@ class RobotSerialPortWindow:
                 self.conn.send("done".encode())  # 返回数据
 
     # 串口发送指令到机械臂
-    def sendmsg(self, engine0=INIT_ENGINE, engine1=INIT_ENGINE, engine2=INIT_ENGINE, engine3=INIT_ENGINE, run_time=1000):
+    def sendmsg(self, engine0=INIT_ENGINE, engine1=INIT_ENGINE, engine2=INIT_ENGINE, engine3=INIT_ENGINE,
+                run_time=1000):
         if not self.serial.isOpen():
             return
+        MAX_ENGINE = 2500
+        MIN_ENGINE = 500
+        engine0 = engine0 if engine0 <= MAX_ENGINE else MAX_ENGINE
+        engine0 = engine0 if engine0 >= MIN_ENGINE else MIN_ENGINE
+        engine1 = engine1 if engine1 <= MAX_ENGINE else MAX_ENGINE
+        engine1 = engine1 if engine1 >= MIN_ENGINE else MIN_ENGINE
+        engine2 = engine2 if engine2 <= MAX_ENGINE else MAX_ENGINE
+        engine2 = engine2 if engine2 >= MIN_ENGINE else MIN_ENGINE
+
         data = "{#000P" + str(int(engine0)) + "T" + str(int(run_time)) + "!" + \
                "#001P" + str(int(engine1)) + "T" + str(int(run_time)) + "!" + \
                "#002P" + str(int(engine2)) + "T" + str(int(run_time)) + "!" + \
