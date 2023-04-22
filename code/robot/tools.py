@@ -90,7 +90,7 @@ class CurveFitting(object):
 
     def fun(self, param, angle, length):  # 定义拟合函数形式
         len_calibration, angle_init = param
-        return angle_init - (angle + length * len_calibration) * 11.11
+        return angle_init - (angle + length * len_calibration) * 7.28
 
     def error(self, param, angle, length, engine):  # 拟合残差
         return self.fun(param, angle, length) - engine
