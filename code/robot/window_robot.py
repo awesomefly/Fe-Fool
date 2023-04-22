@@ -806,9 +806,9 @@ class RobotSerialPortWindow:
 
     def angle2engine(self, angle, num):
         if num == 0 or num == 1:
-            return INIT_ENGINE - int(angle * 7.28)
+            return INIT_ENGINE - int(angle * 11.11)
         else:
-            return INIT_ENGINE + int(angle * 7.28)
+            return INIT_ENGINE + int(angle * 11.11)
 
     # 机械臂运动
     def robotrun(self, offset, t=0):
@@ -848,8 +848,8 @@ class RobotSerialPortWindow:
         if t > 4000:
             t = 4000
 
-        self.sendmsg(engine0=int(-angle0 * 7.28) + INIT_ENGINE, engine1=INIT_ENGINE - int(angle1 * 7.28),
-                     engine2=INIT_ENGINE + int(angle2 * 7.28),
+        self.sendmsg(engine0=int(-angle0 * 11.11) + INIT_ENGINE, engine1=INIT_ENGINE - int(angle1 * 11.11),
+                     engine2=INIT_ENGINE + int(angle2 * 11.11),
                      run_time=t)
         self.last_angle_list = [angle0, angle1, angle2]
 

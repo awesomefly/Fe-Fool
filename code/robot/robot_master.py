@@ -168,11 +168,13 @@ class BoardGamesRobotMaster(RobotMaster):
         self.length_err = length_err
         self.width_err = width_err
         self.history_set = set()
+        self.robot_history_set = set()
         self.count = 0
         self.last_down_time = 0
         self.last_wring_time = 0
         self.overtime = 20  # 超时提醒
         self.our_class_list = []  # 玩家使用的棋子类型
+        self.robot_class_list = []  # 机器人使用的棋子类型
 
     @abstractmethod
     def check_start(self, coordinate_list):
@@ -364,6 +366,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         self.all_chess_list = []
         self.start_point = START_POINT_CHESS
         self.get_our_class()
+        self.wrong_count = 0
 
     # 玩家的象棋类别，红子(先手)
     def get_our_class(self):
@@ -373,6 +376,8 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         for name in data['names']:
             if name.startswith('hong'):
                 self.our_class_list.append(index)
+            elif name.startswith('hei'):
+                self.robot_class_list.append(index)
             index = index + 1
 
         if len(self.our_class_list) != 7:
@@ -383,8 +388,10 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         if answer:
             self.chess_ai = chess.Chess(think_depth=self.think_depth)
             self.history_set.clear()
+            self.robot_history_set.clear()
             self.count = 0
             self.last_down_time = 0
+            self.wrong_count = 0
             self.start_flag = False
         else:
             self.close()
@@ -427,8 +434,10 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         coordinate_list = coordinate_mapping(pixel_list, self.width, self.length, img_shape[0], img_shape[1])
         if not self.check_start(coordinate_list):
             return
-        pos_set = self.coordinate_to_pos(coordinate_list)
-        pos = self.find_last_down_pos(pos_set)
+        our_pos_set, robot_pos_set = self.coordinate_to_pos(coordinate_list)
+        if not self.check_some_wrong(robot_pos_set):
+            return
+        pos = self.find_last_down_pos(our_pos_set)
 
         if time.time() - self.last_down_time > self.overtime:
             self.last_down_time = time.time()
@@ -457,6 +466,18 @@ class ChessRobotMaster(BoardGamesRobotMaster):
 
                 self.history_set.add(our_down_pos)
                 self.history_set.remove(our_pick_pos)
+                print(self.history_set)
+                print(our_pick_pos)
+
+                print(self.robot_history_set)
+                print(ai_pick_pos)
+                self.robot_history_set.add(ai_down_pos)
+                self.robot_history_set.remove(ai_pick_pos)
+
+                for pos in self.robot_history_set:
+                    if our_down_pos == pos[0:-1]:
+                        self.robot_history_set.remove(pos)
+                        break
 
                 is_eat = False
                 for pos in self.history_set:
@@ -546,13 +567,19 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         return index
 
     def coordinate_to_pos(self, coordinate_list):
-        pos_set = set()
+        our_pos_set = set()
+        robot_pos_set = set()
         for coordinate_x, coordinate_y, c in coordinate_list:
             if c in self.our_class_list:  # 只计算玩家的棋子
                 pos_x = round(abs(coordinate_x - self.width_err) / (self.width - 2 * self.width_err) * 8)
                 pos_y = round(abs(coordinate_y - self.length_err) / (self.length - 2 * self.length_err) * 9)
-                pos_set.add((pos_x, pos_y, c))
-        return pos_set
+                our_pos_set.add((pos_x, pos_y, c))
+
+            elif c in self.robot_class_list:
+                pos_x = round(abs(coordinate_x - self.width_err) / (self.width - 2 * self.width_err) * 8)
+                pos_y = round(abs(coordinate_y - self.length_err) / (self.length - 2 * self.length_err) * 9)
+                robot_pos_set.add((pos_x, pos_y))
+        return our_pos_set, robot_pos_set
 
     def get_map_pos_2_class(self, coordinate_list):
         map_pos_2_class = [[0] * 10 for i in range(10)]
@@ -567,13 +594,35 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         y = self.length_err + y * (self.length - 2 * self.length_err) / 9
         return x, y
 
+    def check_some_wrong(self, robot_now_pos_set):
+        # print(self.robot_history_set)
+        # print(robot_now_pos_set)
+        # print(self.wrong_count)
+        if len(self.robot_history_set) == 0:
+            self.robot_history_set = robot_now_pos_set
+            return True
+        else:
+            err_pos_1 = self.robot_history_set - robot_now_pos_set
+            err_pos_2 = robot_now_pos_set - self.robot_history_set
+            if len(err_pos_1) or len(err_pos_2):
+                self.wrong_count += 1
+                if self.wrong_count > 10:
+                    self.wrong_count = 0
+                    play_sound("chess_wrong")
+                return False
+            else:
+                self.wrong_count = self.wrong_count - 1 if self.wrong_count > 0 else 0
+                if self.wrong_count == 0:
+                    return True
+                return False
+
     def find_last_down_pos(self, now_pos_set):
         if len(self.history_set) == 0:
             self.history_set = now_pos_set
         else:
             our_pick_pos = self.history_set - now_pos_set
             our_down_pos = now_pos_set - self.history_set
-            # LOG.info(f"玩家最后一次落子落子位置:{our_pick_pos} 至 {our_down_pos}")
+            LOG.info(f"玩家最后一次落子落子位置:{our_pick_pos} 至 {our_down_pos}")
             if len(our_pick_pos) == 1 and len(our_down_pos) == 1 and list(our_pick_pos)[0][-1] == list(our_down_pos)[0][
                 -1]:
                 self.count += 1
