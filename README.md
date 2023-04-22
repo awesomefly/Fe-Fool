@@ -2,16 +2,13 @@
 
 > 功能：五子棋、象棋、分拣（可自定义识别物体与目标坐标）
 >
-> 视频介绍：[铁憨憨](https://space.bilibili.com/109454273)
+> 视频介绍：[铁憨憨](https://www.bilibili.com/video/BV1js4y1K7cf)
 >
-> exe可执行文件：[点击下载](https://gitee.com/Kkoutianwu/Fe-Fool-exe)
->
-> 想学习源码的同学，可以加入我的知识星球，向我提问。
-![image](https://gitee.com/Kkoutianwu/Fe-Fool/raw/linux/QRcode.png)
+> exe可执行文件：https://cloud.189.cn/t/zYjiimeMbiQ3 （访问码：4afq）
 
 # 1、硬件清单
 
-[表格下载](https://gitee.com/Kkoutianwu/Fe-Fool-exe)
+[表格下载](https://gitee.com/Kkoutianwu/Fe-Fool/blob/linux/%E5%87%86%E5%A4%87%E6%96%87%E4%BB%B6/%E7%A1%AC%E4%BB%B6%E6%B8%85%E5%8D%95.xlsx)
 
 # 2、软件运行要求：
 
