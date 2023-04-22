@@ -42,8 +42,8 @@ def inverse_kinematics(x, y, z):
     deg_j3 = degrees(j3) - 90 + deg_j2
 
     LOG.debug("运动学逆解结果：j1: {} ,j2: {} ,j3: {} ".format(deg_j1, deg_j2, deg_j3))
-    if deg_j1 > 135 or deg_j1 < -135 or deg_j2 > 110 or deg_j2 < -70 or deg_j3 > 135 or deg_j3 < 0:
-        LOG.error("逆解结果超出约束")
+    if deg_j1 > 90 or deg_j1 < -90 or deg_j2 > 90 or deg_j2 < -70 or deg_j3 > 90 or deg_j3 < -10:
+        LOG.error("逆解结果超出约束或超出舵机行程")
         return False, None, None, None
     # LOG.info("运动学正解结果：x:%f,y:%f,z:%f\r\n" % (x1, y1, z1))
     LOG.debug("运动学正解结果：x:{},y:{},z:{}\r\n".format(x1, y1, z1))
