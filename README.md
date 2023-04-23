@@ -4,7 +4,7 @@
 >
 > 视频介绍：[铁憨憨](https://www.bilibili.com/video/BV1js4y1K7cf)
 >
-> exe可执行文件：https://cloud.189.cn/t/zYjiimeMbiQ3 （访问码：4afq）
+> exe可执行文件：https://cloud.189.cn/t/EFZfy22a2AJv （访问码：eaq7）
 
 # 1、硬件清单
 
