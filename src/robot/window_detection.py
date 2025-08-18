@@ -14,7 +14,7 @@ from robot import robot_master, LOG, ROOT
 from robot.tools import Observable, get_cameras, YamlHandler, GlobalVar
 from robot.image_find_focus import FocusFinder
 
-MODEL_PATH = ROOT + '../yolov5/runs/train/exp/weights/best.pt'
+MODEL_PATH = ROOT + "../yolov5/runs/train/exp/weights/best.pt"
 
 
 def yolo_to_pixel(yolo_list, rows_b, cols_b):
@@ -54,48 +54,66 @@ class DetecterWindow(Observable):
     def window(self, root):
         self.root = root
         self.root.config(width=400, height=1000)
-        self.root.title("下棋&抓取")
+        self.root.title("下棋对弈")
         self.panel = tkinter.Label(self.root)
-        self.panel.grid(row=0, column=1, sticky=('e', 'w'))
-        self.root.protocol('WM_DELETE_WINDOW', self.close)
+        self.panel.grid(row=0, column=1, sticky=("e", "w"))
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
 
         self.path = tkinter.StringVar(self.root)
         self.path.set(os.path.abspath(MODEL_PATH))
 
         self.path_label = tkinter.Label(self.root, text="模型路径:")
         self.path_label.grid(row=1, column=0)
-        self.path_entry = tkinter.Entry(self.root, textvariable=self.path, state="readonly")
+        self.path_entry = tkinter.Entry(
+            self.root, textvariable=self.path, state="readonly"
+        )
         self.path_entry.grid(row=1, column=1, ipadx=200)
 
-        self.patth_button = tkinter.Button(self.root, text="路径选择", command=self.select_path)
+        self.patth_button = tkinter.Button(
+            self.root, text="路径选择", command=self.select_path
+        )
         self.patth_button.grid(row=1, column=2)
 
-        self.label1 = tkinter.Label(self.root, text='请输入检测设备(GPU输入0,CPU输入cpu):')
+        self.label1 = tkinter.Label(
+            self.root, text="请输入检测设备(GPU输入0,CPU输入cpu):"
+        )
         self.inp1 = tkinter.Entry(self.root)
         self.inp1.insert(0, "0")
         self.label1.grid(row=2, column=0)
         self.inp1.grid(row=2, column=1)
 
-        self.model_button = tkinter.Button(self.root, text="模型确认", command=self.load_model)
+        self.model_button = tkinter.Button(
+            self.root, text="模型确认", command=self.load_model
+        )
         self.model_button.grid(row=3, column=1)
 
         self.camera_label = tkinter.Label(self.root, text="请选择相机")
         self.cameraselect = ttk.Combobox(self.root)
         self.cameraselect.bind("<<ComboboxSelected>>", self.select_camera)
-        self.cameraselect['value'] = get_cameras()
+        self.cameraselect["value"] = get_cameras()
 
-        self.detect_button = tkinter.Button(self.root, text='开始检测', command=self.start_detect_cmd)
-        self.chess_think_depth_label = tkinter.Label(self.root, bg='#9FB6CD', width=80,
-                                                     text='象棋AI思考步数，步数越多，难度越高，超过5步会等较长时间。当前思考步数：3')
-        self.chess_think_depth_scale = tkinter.Scale(self.root,
-                                                     # label='象棋AI思考步数，步数越多，难度越高',
-                                                     from_=1,
-                                                     to=20,
-                                                     orient=tkinter.HORIZONTAL,  # 设置Scale控件平方向显示
-                                                     length=400,
-                                                     tickinterval=2,  # 设置刻度滑动条的间隔
-                                                     command=self.set_chess_think_depth)  # 调用执行函数，是数值显示在 Label控件中
-        self.connect_button = tkinter.Button(self.root, text='开始工作', command=self.connect_cmd)
+        self.detect_button = tkinter.Button(
+            self.root, text="开始检测", command=self.start_detect_cmd
+        )
+        self.chess_think_depth_label = tkinter.Label(
+            self.root,
+            bg="#9FB6CD",
+            width=80,
+            text="象棋AI思考步数，步数越多，难度越高，超过5步会等较长时间。当前思考步数：3",
+        )
+        self.chess_think_depth_scale = tkinter.Scale(
+            self.root,
+            # label='象棋AI思考步数，步数越多，难度越高',
+            from_=1,
+            to=20,
+            orient=tkinter.HORIZONTAL,  # 设置Scale控件平方向显示
+            length=400,
+            tickinterval=2,  # 设置刻度滑动条的间隔
+            command=self.set_chess_think_depth,
+        )  # 调用执行函数，是数值显示在 Label控件中
+        self.connect_button = tkinter.Button(
+            self.root, text="开始工作", command=self.connect_cmd
+        )
 
         # 工作类型
         self.game_mode = tkinter.IntVar(self.root)
@@ -122,7 +140,7 @@ class DetecterWindow(Observable):
         # 摄像头读取,ret为是否成功打开摄像头,true,false。 frame为视频的每一帧图像
         ret, frame = self.capture.read()
         if not ret:
-            tkinter.messagebox.showerror('错误', '摄像头无数据', parent=self.root)
+            tkinter.messagebox.showerror("错误", "摄像头无数据", parent=self.root)
         return frame
 
     def close(self):
@@ -132,28 +150,30 @@ class DetecterWindow(Observable):
             self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 2)
 
     def connect_cmd(self):
-        if self.connect_button['text'] == '开始工作':
+        if self.connect_button["text"] == "开始工作":
             if self.game_mode.get() == 0:
-                tkinter.messagebox.showerror('错误', '未选择模式', parent=self.root)
+                tkinter.messagebox.showerror("错误", "未选择模式", parent=self.root)
                 return
 
             if self.connect_robot(self.game_mode.get()):
-                self.connect_button['text'] = "返回选择其他模式"
+                self.connect_button["text"] = "返回选择其他模式"
             else:
-                tkinter.messagebox.showerror('错误', '未开启机械臂', parent=self.root)
+                tkinter.messagebox.showerror("错误", "未开启机械臂", parent=self.root)
         else:
             self.disconnect_robot()
-            self.connect_button['text'] = '开始工作'
+            self.connect_button["text"] = "开始工作"
 
     def connect_robot(self, game_mode):
         if self.connect_flag:
             return False
         if game_mode == 1:
-            self.robot_master = robot_master.GobangRobotMaster()
+            self.robot_master = robot_master.GobangRobotMaster()  # 五子棋
         elif game_mode == 2:
-            self.robot_master = robot_master.ChessRobotMaster(think_depth=self.chess_think_depth)
+            self.robot_master = robot_master.ChessRobotMaster(  # 象棋
+                think_depth=self.chess_think_depth
+            )
         elif game_mode == 3:
-            self.robot_master = robot_master.GrabRobotMaster()
+            self.robot_master = robot_master.GrabRobotMaster()  # 物体分类
 
         if self.robot_master.connect_robot() == 0:  # 连接成功
             self.connect_flag = True
@@ -187,13 +207,19 @@ class DetecterWindow(Observable):
         self.chess_think_depth_scale.grid(row=3, column=1)
         self.chess_think_depth_label.grid(row=4, column=1)
 
-        self.radio_button_gobang = tkinter.Radiobutton(self.root, text='五子棋', variable=self.game_mode, value=1)
+        self.radio_button_gobang = tkinter.Radiobutton(
+            self.root, text="五子棋", variable=self.game_mode, value=1
+        )
         self.radio_button_gobang.grid(row=5, column=0)
 
-        self.radio_button_chess = tkinter.Radiobutton(self.root, text='象棋', variable=self.game_mode, value=2)
+        self.radio_button_chess = tkinter.Radiobutton(
+            self.root, text="象棋", variable=self.game_mode, value=2
+        )
         self.radio_button_chess.grid(row=5, column=1)
 
-        self.radio_button_grab = tkinter.Radiobutton(self.root, text='物体抓取', variable=self.game_mode, value=3)
+        self.radio_button_grab = tkinter.Radiobutton(
+            self.root, text="物体抓取", variable=self.game_mode, value=3
+        )
         self.radio_button_grab.grid(row=5, column=2)
 
         self.connect_button.grid(row=6, column=1)
@@ -203,14 +229,17 @@ class DetecterWindow(Observable):
     def load_model(self):
         dir = self.path.get()
         if not dir.endswith(".pt"):
-            tkinter.messagebox.showerror('错误', '模型错误', parent=self.root)
+            tkinter.messagebox.showerror("错误", "模型错误", parent=self.root)
         else:
-            if self.inp1.get() == 'cpu':
-                device = 'cpu'
+            if self.inp1.get() == "cpu":
+                device = "cpu"
             else:
                 from torch.cuda import is_available
+
                 if is_available() == False:
-                    tkinter.messagebox.showerror('错误', 'cuda未安装或版本出错，不可使用GPU', parent=self.root)
+                    tkinter.messagebox.showerror(
+                        "错误", "cuda未安装或版本出错，不可使用GPU", parent=self.root
+                    )
                     return
                 device = 0
             self.self_yolo = YoloDetecter(weights=dir, device=device)
@@ -224,7 +253,9 @@ class DetecterWindow(Observable):
             self.camera_label.grid(row=3, column=0)
             self.cameraselect.grid(row=3, column=1)
 
-            GlobalVar.set_value('DATA_YAML_PATH', os.path.dirname(self.path.get()) + "/../data.yaml")  # 该模型对应的数据集yaml文件
+            GlobalVar.set_value(
+                "DATA_YAML_PATH", os.path.dirname(self.path.get()) + "/../data.yaml"
+            )  # 该模型对应的数据集yaml文件
 
     def select_path(self):
         path_ = filedialog.askopenfilename(initialdir=MODEL_PATH)
@@ -235,26 +266,29 @@ class DetecterWindow(Observable):
             self.path.set(path_)
 
     def set_chess_think_depth(self, value):
-        self.chess_think_depth_label.config(text='象棋AI思考步数，步数越多，难度越高，超过5步会等较长时间。当前思考步数：' + value)
+        self.chess_think_depth_label.config(
+            text="象棋AI思考步数，步数越多，难度越高，超过5步会等较长时间。当前思考步数："
+            + value
+        )
         self.chess_think_depth = int(value)
 
     def detect(self):
-        pre_img = self.get_video_frame()
+        pre_img = self.get_video_frame()  # 获取初始视频帧
         last_class_list = []
         focus_finder = FocusFinder()
 
+        # 启动安全检测线程
         safe_thread = threading.Thread(target=self.safe_detect)
         safe_thread.setDaemon(True)
         safe_thread.start()
 
         while self.detect_flag:
-            # start_time = time.time()
             cur_img = self.get_video_frame()
+            # 帧差异检测（过滤快速变化画面）
             diff = cv2.absdiff(cur_img, pre_img)
             max_diff = np.max(diff)
             pre_img = cur_img
-            if max_diff > 120:
-                # LOG.debug(f"相邻两帧像素差异最大值大于一百二:{max_diff}")
+            if max_diff > 120:  # 像素差异阈值控制
                 continue
 
             focus_image, has_res = focus_finder.find_focus(cur_img)
@@ -262,7 +296,10 @@ class DetecterWindow(Observable):
             if has_res:
                 res_img, yolo_list = self.self_yolo.detect(focus_image)
                 tk_show_img(self.panel, res_img)
-                pixel_list = yolo_to_pixel(yolo_list, res_img.shape[0], res_img.shape[1])
+                # 将YOLO输出的归一化坐标转换为像素坐标
+                pixel_list = yolo_to_pixel(
+                    yolo_list, res_img.shape[0], res_img.shape[1]
+                )
 
                 # 安装类型排序，如果相邻两帧的检测结果相同，则认为是可信的
                 pixel_list.sort(key=lambda x: x[2], reverse=False)
@@ -275,6 +312,7 @@ class DetecterWindow(Observable):
                 last_class_list = new_class_list
 
                 if self.connect_flag and is_correct:
+                    # 发布检测结果，供机器人控制模块
                     self.publish("yolo_res", pixel_list, res_img.shape)
 
             # LOG.debug(f"本帧运行时间:{time.time() - start_time}")
@@ -282,12 +320,12 @@ class DetecterWindow(Observable):
             self.close()
 
     def safe_detect(self):
-        file_path = GlobalVar.get_value('DATA_YAML_PATH')
+        file_path = GlobalVar.get_value("DATA_YAML_PATH")
         data = YamlHandler(file_path).read_yaml()
-        name = data['names']
-        if 'hand' not in name:
+        name = data["names"]
+        if "hand" not in name:
             return
-        hand_class = data['names'].index('hand')
+        hand_class = data["names"].index("hand")
         last_stop_time = 0
         count = 0
         pause_flag = False
@@ -320,7 +358,7 @@ class DetecterWindow(Observable):
             time.sleep(0.1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     root = tkinter.Tk()
     DetecterWindow(root)
     root.mainloop()
