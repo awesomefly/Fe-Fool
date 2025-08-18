@@ -1,10 +1,10 @@
-# pip install -r requirements_cpu.txt
-
---index https://mirrors.ustc.edu.cn/pypi/web/simple
+# pip install -r requirements_cpu.txt --index https://mirrors.ustc.edu.cn/pypi/web/simple
 # Base ----------------------------------------
-matplotlib>=3.2.2
-numpy>=1.18.5
-opencv-python== 4.5.1.48
+#matplotlib==3.2.2
+matplotlib==3.8.1 #for mac m1,m2
+#numpy==1.19.3
+numpy==1.24.2 #for mac m1,m2
+opencv-python==4.5.4.60
 Pillow>=7.1.2
 PyYAML>=5.3.1
 requests>=2.23.0
@@ -22,17 +22,20 @@ seaborn>=0.11.0
 
 # Robot ---------------------
 Augmentor==0.2.10
-playsound
+playsound==1.2.2
 pyserial==3.5
 PyMatting==1.1.8
-onnxruntime==1.10.0
+#onnxruntime==1.10.0
+onnxruntime==1.12.0 #for mac m1,m2
 gdown==4.5.3
 
 
 # CPU
 setuptools==59.5.0
-torch==1.10.0 
-torchvision==0.11.1
+#torch==1.10.0
+#torchvision==0.11.1
+torch==2.0.0 #for mac m1,m2
+torchvision==0.15.1 #for mac m1,m2
 
 # GPU
 # torch==1.10.0+cu113

@@ -6,8 +6,16 @@ import time
 from abc import abstractmethod
 from math import sqrt
 
-from robot.tools import coordinate_mapping, play_sound, play_sound_thread, get_name_by_class, \
-    plane_coordinate_transform, YamlHandler, Observer, GlobalVar
+from robot.tools import (
+    coordinate_mapping,
+    play_sound,
+    play_sound_thread,
+    get_name_by_class,
+    plane_coordinate_transform,
+    YamlHandler,
+    Observer,
+    GlobalVar,
+)
 from robot import LOG, ROOT, PARAMS_YAML, SERVER_ADDR, chess, gobang
 from robot.robot_ik import inverse_kinematics
 
@@ -51,7 +59,7 @@ TRANSFORM_X_CHESS = 120  # 棋盘距离机械臂原点X轴的平移
 
 # 其他公共参数
 ERROR_NUM = 9999  # 一个较大的值来做为错误值
-ROBOT_PARAMS = ROOT + '/robot_params.yaml'
+ROBOT_PARAMS = ROOT + "/robot_params.yaml"
 
 
 class RobotMaster(Observer):
@@ -83,13 +91,13 @@ class RobotMaster(Observer):
     def pause(self):
         if not self.pause_flag:
             self.pause_flag = True
-            self.client.send('pause\n'.encode())
+            self.client.send("pause\n".encode())
             play_sound("hand")
 
     def resume(self):
         if self.pause_flag:
             self.pause_flag = False
-            self.client.send('resume\n'.encode())
+            self.client.send("resume\n".encode())
 
     def connect_robot(self):
         res = self.client.connect_ex(SERVER_ADDR)  # 连接机械臂模块
@@ -116,46 +124,96 @@ class RobotMaster(Observer):
                 break
 
     def command_to_str(self, mod, *args):
-        res_str = mod + ','
+        res_str = mod + ","
         for n in args:
             res_str += str(n) + ","
         return res_str
 
-    def robot_move_to(self, start_coordinate, target_coordinate, mid_coordinate=[], is_rude=False):
+    def robot_move_to(
+        self, start_coordinate, target_coordinate, mid_coordinate=[], is_rude=False
+    ):
         # start_coordinate取子，从目标位置高20mm的位置开始下降，这样的控制会更加稳定
-        self.send_command(self.command_to_str("move", start_coordinate[0], start_coordinate[1],
-                                              start_coordinate[2] + 20))
+        self.send_command(
+            self.command_to_str(
+                "move",
+                start_coordinate[0],
+                start_coordinate[1],
+                start_coordinate[2] + 20,
+            )
+        )
         time.sleep(1.5)
-        self.send_command(self.command_to_str("move", start_coordinate[0], start_coordinate[1], start_coordinate[2]))
+        self.send_command(
+            self.command_to_str(
+                "move", start_coordinate[0], start_coordinate[1], start_coordinate[2]
+            )
+        )
         self.send_command(self.command_to_str("pick"))
 
         # 没设置中间点抬起30mm
         if len(mid_coordinate) != 3:
             self.send_command(
-                self.command_to_str("move", start_coordinate[0], start_coordinate[1], start_coordinate[2] + 30))
+                self.command_to_str(
+                    "move",
+                    start_coordinate[0],
+                    start_coordinate[1],
+                    start_coordinate[2] + 30,
+                )
+            )
         # 设置中间点往中间点走
         else:
-            self.send_command(self.command_to_str("move", mid_coordinate[0], mid_coordinate[1], mid_coordinate[2]))
+            self.send_command(
+                self.command_to_str(
+                    "move", mid_coordinate[0], mid_coordinate[1], mid_coordinate[2]
+                )
+            )
 
         # 目标点放
         if is_rude:
             self.send_command(
-                self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2]))
+                self.command_to_str(
+                    "move",
+                    target_coordinate[0],
+                    target_coordinate[1],
+                    target_coordinate[2],
+                )
+            )
             self.send_command(self.command_to_str("down"))
         else:
             self.send_command(
-                self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2] + 20))
+                self.command_to_str(
+                    "move",
+                    target_coordinate[0],
+                    target_coordinate[1],
+                    target_coordinate[2] + 20,
+                )
+            )
             time.sleep(1.5)
             self.send_command(
-                self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2]))
+                self.command_to_str(
+                    "move",
+                    target_coordinate[0],
+                    target_coordinate[1],
+                    target_coordinate[2],
+                )
+            )
             self.send_command(self.command_to_str("down"))
             # 抬起30mm
             self.send_command(
-                self.command_to_str("move", target_coordinate[0], target_coordinate[1], target_coordinate[2] + 30))
+                self.command_to_str(
+                    "move",
+                    target_coordinate[0],
+                    target_coordinate[1],
+                    target_coordinate[2] + 30,
+                )
+            )
 
     def robot_back(self):
         # 回到起点
-        self.send_command(self.command_to_str("move", self.start_point[0], self.start_point[1], self.start_point[2]))
+        self.send_command(
+            self.command_to_str(
+                "move", self.start_point[0], self.start_point[1], self.start_point[2]
+            )
+        )
 
     @abstractmethod
     def is_robot_has_ik(self, coordinate):
@@ -203,31 +261,53 @@ class BoardGamesRobotMaster(RobotMaster):
 
 
 class GobangRobotMaster(BoardGamesRobotMaster):
-    def __init__(self, width=WIDTH_GOBANG, length=LENGTH_GOBANG, width_err=WIDTH_ERR_GOBANG,
-                 length_err=LENGTH_ERR_GOBANG,
-                 row=ROW_GOBANG, column=COLUMN_GOBANG):
+    def __init__(
+        self,
+        width=WIDTH_GOBANG,
+        length=LENGTH_GOBANG,
+        width_err=WIDTH_ERR_GOBANG,
+        length_err=LENGTH_ERR_GOBANG,
+        row=ROW_GOBANG,
+        column=COLUMN_GOBANG,
+    ):
         super().__init__(width, length, width_err, length_err)
         self.row = row
         self.column = column
-        pick_params = YamlHandler(ROBOT_PARAMS).read_yaml()['pick_point']  # 读取params.yaml文件中配置的参数
-        self.pick_point = [pick_params[0], pick_params[1], pick_params[2]]  # 取五子棋的固定点
-        self.mid_point = [pick_params[0], pick_params[1] - 50, pick_params[2] + 40]  # 取五子棋的后走的中间点
-        self.start_point = [pick_params[0], pick_params[1], pick_params[2] + 40]  # 五子棋模式起始点
+        pick_params = YamlHandler(ROBOT_PARAMS).read_yaml()[
+            "pick_point"
+        ]  # 读取params.yaml文件中配置的参数
+        self.pick_point = [
+            pick_params[0],
+            pick_params[1],
+            pick_params[2],
+        ]  # 取五子棋的固定点
+        self.mid_point = [
+            pick_params[0],
+            pick_params[1] - 50,
+            pick_params[2] + 40,
+        ]  # 取五子棋的后走的中间点
+        self.start_point = [
+            pick_params[0],
+            pick_params[1],
+            pick_params[2] + 40,
+        ]  # 五子棋模式起始点
         self.gobang_ai = gobang.Gobang(row=self.row, column=self.column)
         self.get_our_class()
 
     # 玩家使用的五子棋类别，黑子(先手)
     def get_our_class(self):
-        file_path = GlobalVar.get_value('DATA_YAML_PATH')
+        file_path = GlobalVar.get_value("DATA_YAML_PATH")
         data = YamlHandler(file_path).read_yaml()
-        name = data['names']
-        if 'heizi' in name:
-            self.our_class_list.append(data['names'].index('heizi'))
+        name = data["names"]
+        if "heizi" in name:
+            self.our_class_list.append(data["names"].index("heizi"))
         else:
-            messagebox.showerror('错误', '该模型未包含五子棋或种类出错，不可使用五子棋模式')
+            messagebox.showerror(
+                "错误", "该模型未包含五子棋或种类出错，不可使用五子棋模式"
+            )
 
     def restart(self):
-        answer = messagebox.askokcancel('憨憨', '再来一局？请在确认前收好棋子')
+        answer = messagebox.askokcancel("憨憨", "再来一局？请在确认前收好棋子")
         if answer:
             self.gobang_ai = gobang.Gobang(row=self.row, column=self.column)
             self.history_set = set()
@@ -255,18 +335,24 @@ class GobangRobotMaster(BoardGamesRobotMaster):
             return True
 
     def is_robot_has_ik(self, coordinate):
-        coordinate_x, coordinate_y = plane_coordinate_transform(coordinate_x=coordinate[0],
-                                                                coordinate_y=coordinate[1],
-                                                                transform_x=TRANSFORM_X_GOBANG,
-                                                                transform_y=-self.length / 2,
-                                                                transform_angle=0)
+        coordinate_x, coordinate_y = plane_coordinate_transform(
+            coordinate_x=coordinate[0],
+            coordinate_y=coordinate[1],
+            transform_x=TRANSFORM_X_GOBANG,
+            transform_y=-self.length / 2,
+            transform_angle=0,
+        )
         has_ik1, _, _, _ = inverse_kinematics(coordinate_x, coordinate_y, coordinate[2])
-        has_ik2, _, _, _ = inverse_kinematics(coordinate_x, coordinate_y, coordinate[2] + 20)
+        has_ik2, _, _, _ = inverse_kinematics(
+            coordinate_x, coordinate_y, coordinate[2] + 20
+        )
         return has_ik1 & has_ik2
 
     # pixel:像素坐标  coordinate:物理坐标  pos:棋盘行列位置
     def work(self, pixel_list, img_shape):
-        coordinate_list = coordinate_mapping(pixel_list, self.width, self.length, img_shape[0], img_shape[1])
+        coordinate_list = coordinate_mapping(
+            pixel_list, self.width, self.length, img_shape[0], img_shape[1]
+        )
         if not self.check_start(coordinate_list):
             return
         pos_set = self.coordinate_to_pos(coordinate_list)
@@ -277,14 +363,20 @@ class GobangRobotMaster(BoardGamesRobotMaster):
             play_sound_thread("overtime")
         if our_down_pos:
             our_down_pos_x, our_down_pos_y = our_down_pos
-            ai_down_pos_x, ai_down_pos_y, res = self.gobang_ai.down(our_down_pos_x, our_down_pos_y)
+            ai_down_pos_x, ai_down_pos_y, res = self.gobang_ai.down(
+                our_down_pos_x, our_down_pos_y
+            )
             if res == -1:
                 return
             else:
-                ai_down_coordinate_x, ai_down_coordinate_y = self.pos_to_coordinate(ai_down_pos_x, ai_down_pos_y)
+                ai_down_coordinate_x, ai_down_coordinate_y = self.pos_to_coordinate(
+                    ai_down_pos_x, ai_down_pos_y
+                )
                 # 先判断机械臂有没有解
                 is_no_ik = False
-                if not self.is_robot_has_ik((ai_down_coordinate_x, ai_down_coordinate_y, HIGH_GOBANG)):
+                if not self.is_robot_has_ik(
+                    (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_GOBANG)
+                ):
                     is_no_ik = True
                     if ai_down_pos_x == 12 and ai_down_pos_y == 0:
                         play_sound("res", "no_res_left")
@@ -303,14 +395,20 @@ class GobangRobotMaster(BoardGamesRobotMaster):
                     self.working_flag = False
 
                     self.send_command(
-                        self.command_to_str("move", self.mid_point[0], self.mid_point[1], self.mid_point[2]))
+                        self.command_to_str(
+                            "move",
+                            self.mid_point[0],
+                            self.mid_point[1],
+                            self.mid_point[2],
+                        )
+                    )
                     self.robot_back()
 
                 if res == 1:  # 胜负已分
-                    play_sound_thread('win')
+                    play_sound_thread("win")
                     self.restart()
                 if res == 2:
-                    play_sound_thread('lost')
+                    play_sound_thread("lost")
                     self.restart()
                 else:
                     play_sound_thread("your")
@@ -319,22 +417,33 @@ class GobangRobotMaster(BoardGamesRobotMaster):
 
     def robot_do_gobang(self, ai_down_coordinate_x, ai_down_coordinate_y):
         # 棋盘坐标转机械臂坐标
-        ai_down_coordinate_x, ai_down_coordinate_y = plane_coordinate_transform(coordinate_x=ai_down_coordinate_x,
-                                                                                coordinate_y=ai_down_coordinate_y,
-                                                                                transform_x=TRANSFORM_X_GOBANG,
-                                                                                transform_y=-self.length / 2,
-                                                                                transform_angle=0)
-        self.robot_move_to(self.pick_point, (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_GOBANG),
-                           self.mid_point)
+        ai_down_coordinate_x, ai_down_coordinate_y = plane_coordinate_transform(
+            coordinate_x=ai_down_coordinate_x,
+            coordinate_y=ai_down_coordinate_y,
+            transform_x=TRANSFORM_X_GOBANG,
+            transform_y=-self.length / 2,
+            transform_angle=0,
+        )
+        self.robot_move_to(
+            self.pick_point,
+            (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_GOBANG),
+            self.mid_point,
+        )
 
     def coordinate_to_pos(self, coordinate_list):
         pos_set = set()
         for coordinate_x, coordinate_y, c in coordinate_list:
             if c in self.our_class_list:  # 只计算玩家的棋子
                 pos_x = round(
-                    abs(coordinate_x - self.width_err) / (self.width - 2 * self.width_err) * (self.column - 1))
+                    abs(coordinate_x - self.width_err)
+                    / (self.width - 2 * self.width_err)
+                    * (self.column - 1)
+                )
                 pos_y = round(
-                    abs(coordinate_y - self.length_err) / (self.length - 2 * self.length_err) * (self.row - 1))
+                    abs(coordinate_y - self.length_err)
+                    / (self.length - 2 * self.length_err)
+                    * (self.row - 1)
+                )
                 pos_set.add((pos_x, pos_y))
         return pos_set
 
@@ -358,8 +467,14 @@ class GobangRobotMaster(BoardGamesRobotMaster):
 
 
 class ChessRobotMaster(BoardGamesRobotMaster):
-    def __init__(self, width=WIDTH_CHESS, length=LENGTH_CHESS, width_err=WIDTH_ERR_CHESS, length_err=LENGTH_ERR_CHESS,
-                 think_depth=3):
+    def __init__(
+        self,
+        width=WIDTH_CHESS,
+        length=LENGTH_CHESS,
+        width_err=WIDTH_ERR_CHESS,
+        length_err=LENGTH_ERR_CHESS,
+        think_depth=3,
+    ):
         super().__init__(width, length, width_err, length_err)
         self.think_depth = think_depth
         self.chess_ai = chess.Chess(think_depth=think_depth)
@@ -370,21 +485,21 @@ class ChessRobotMaster(BoardGamesRobotMaster):
 
     # 玩家的象棋类别，红子(先手)
     def get_our_class(self):
-        file_path = GlobalVar.get_value('DATA_YAML_PATH')
+        file_path = GlobalVar.get_value("DATA_YAML_PATH")
         data = YamlHandler(file_path).read_yaml()
         index = 0
-        for name in data['names']:
-            if name.startswith('hong'):
+        for name in data["names"]:
+            if name.startswith("hong"):
                 self.our_class_list.append(index)
-            elif name.startswith('hei'):
+            elif name.startswith("hei"):
                 self.robot_class_list.append(index)
             index = index + 1
 
         if len(self.our_class_list) != 7:
-            messagebox.showerror('错误', '该模型未包含象棋或种类出错，不可使用象棋模式')
+            messagebox.showerror("错误", "该模型未包含象棋或种类出错，不可使用象棋模式")
 
     def restart(self):
-        answer = messagebox.askokcancel('憨憨', '再来一局？')
+        answer = messagebox.askokcancel("憨憨", "再来一局？")
         if answer:
             self.chess_ai = chess.Chess(think_depth=self.think_depth)
             self.history_set.clear()
@@ -401,12 +516,28 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         if not self.start_flag:
             if len(coordinate_list) == 32:
                 map_temp = self.get_map_pos_2_class(coordinate_list)
-                if map_temp[0][0] == map_temp[8][0] and map_temp[0][9] == map_temp[8][9] and map_temp[1][0] == \
-                        map_temp[7][0] and map_temp[1][9] == map_temp[7][9] and map_temp[2][0] == map_temp[6][0] and \
-                        map_temp[2][9] == map_temp[6][9] and map_temp[3][0] == map_temp[5][0] and map_temp[3][9] == \
-                        map_temp[5][9] and map_temp[1][2] == map_temp[7][2] and map_temp[1][7] == map_temp[7][7] and \
-                        map_temp[0][3] == map_temp[2][3] == map_temp[4][3] == map_temp[6][3] == map_temp[8][3] and \
-                        map_temp[0][6] == map_temp[2][6] == map_temp[4][6] == map_temp[6][6] == map_temp[8][6]:
+                if (
+                    map_temp[0][0] == map_temp[8][0]
+                    and map_temp[0][9] == map_temp[8][9]
+                    and map_temp[1][0] == map_temp[7][0]
+                    and map_temp[1][9] == map_temp[7][9]
+                    and map_temp[2][0] == map_temp[6][0]
+                    and map_temp[2][9] == map_temp[6][9]
+                    and map_temp[3][0] == map_temp[5][0]
+                    and map_temp[3][9] == map_temp[5][9]
+                    and map_temp[1][2] == map_temp[7][2]
+                    and map_temp[1][7] == map_temp[7][7]
+                    and map_temp[0][3]
+                    == map_temp[2][3]
+                    == map_temp[4][3]
+                    == map_temp[6][3]
+                    == map_temp[8][3]
+                    and map_temp[0][6]
+                    == map_temp[2][6]
+                    == map_temp[4][6]
+                    == map_temp[6][6]
+                    == map_temp[8][6]
+                ):
                     play_sound_thread("start")
                     self.last_down_time = time.time()
                     self.start_flag = True
@@ -421,22 +552,30 @@ class ChessRobotMaster(BoardGamesRobotMaster):
             return True
 
     def is_robot_has_ik(self, coordinate):
-        coordinate_x, coordinate_y = plane_coordinate_transform(coordinate_x=coordinate[0],
-                                                                coordinate_y=coordinate[1],
-                                                                transform_x=TRANSFORM_X_CHESS,
-                                                                transform_y=-self.length / 2,
-                                                                transform_angle=0)
+        coordinate_x, coordinate_y = plane_coordinate_transform(
+            coordinate_x=coordinate[0],
+            coordinate_y=coordinate[1],
+            transform_x=TRANSFORM_X_CHESS,
+            transform_y=-self.length / 2,
+            transform_angle=0,
+        )
         has_ik1, _, _, _ = inverse_kinematics(coordinate_x, coordinate_y, coordinate[2])
-        has_ik2, _, _, _ = inverse_kinematics(coordinate_x, coordinate_y, coordinate[2] + 20)
+        has_ik2, _, _, _ = inverse_kinematics(
+            coordinate_x, coordinate_y, coordinate[2] + 20
+        )
         return has_ik1 & has_ik2
 
     def work(self, pixel_list, img_shape):
-        coordinate_list = coordinate_mapping(pixel_list, self.width, self.length, img_shape[0], img_shape[1])
+        # 实现像素坐标系到为棋盘物理坐标
+        coordinate_list = coordinate_mapping(
+            pixel_list, self.width, self.length, img_shape[0], img_shape[1]
+        )
         if not self.check_start(coordinate_list):
             return
         our_pos_set, robot_pos_set = self.coordinate_to_pos(coordinate_list)
         if not self.check_some_wrong(robot_pos_set):
             return
+        # 通过对比历史棋子位置集合，识别玩家最新的移动操作
         pos = self.find_last_down_pos(our_pos_set)
 
         if time.time() - self.last_down_time > self.overtime:
@@ -444,23 +583,38 @@ class ChessRobotMaster(BoardGamesRobotMaster):
             play_sound_thread("overtime")
         self.all_chess_list = coordinate_list
         if pos:
+            # 将玩家动作输入AI模块进行决策
+            # 玩家的动作是：从 our_pick_pos 位置拿起棋子，放置到 our_down_pos 位置
+            # 返回AI的应对策略：从 ai_pick_pos 位置拿起棋子，放置到 ai_down_pos 位置
+            # res 返回值表示游戏结果（-1:无效, 1:AI胜利, 2:玩家胜利, 3:将军, 其他:继续）
             our_pick_pos, our_down_pos = pos
-            ai_pick_pos, ai_down_pos, res = self.chess_ai.player_down(our_pick_pos[0:-1], our_down_pos[0:-1])
+            ai_pick_pos, ai_down_pos, res = self.chess_ai.player_down(
+                our_pick_pos[0:-1], our_down_pos[0:-1]
+            )
             if res == -1:
-                play_sound('wrong_down')
+                play_sound("wrong_down")
                 return
             else:
                 ai_pick_pos_x, ai_pick_pos_y = ai_pick_pos
-                ai_pick_coordinate_x, ai_pick_coordinate_y = self.pos_to_coordinate(ai_pick_pos_x, ai_pick_pos_y)
+                ai_pick_coordinate_x, ai_pick_coordinate_y = self.pos_to_coordinate(
+                    ai_pick_pos_x, ai_pick_pos_y
+                )
                 # 先判断机械臂有没有解
-                if not self.is_robot_has_ik((ai_pick_coordinate_x, ai_pick_coordinate_y, HIGH_CHESS)):
+                if not self.is_robot_has_ik(
+                    (ai_pick_coordinate_x, ai_pick_coordinate_y, HIGH_CHESS)
+                ):
                     play_sound("res")
                     return
 
+                # 将棋盘格子坐标转换为机械臂坐标
                 ai_down_pos_x, ai_down_pos_y = ai_down_pos
-                ai_down_coordinate_x, ai_down_coordinate_y = self.pos_to_coordinate(ai_down_pos_x, ai_down_pos_y)
+                ai_down_coordinate_x, ai_down_coordinate_y = self.pos_to_coordinate(
+                    ai_down_pos_x, ai_down_pos_y
+                )
                 # 先判断机械臂有没有解
-                if not self.is_robot_has_ik((ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS)):
+                if not self.is_robot_has_ik(
+                    (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS)
+                ):
                     play_sound("res")
                     return
 
@@ -486,72 +640,121 @@ class ChessRobotMaster(BoardGamesRobotMaster):
                         self.history_set.remove(pos)
                         break
 
+                # 机械臂运动规划
                 self.working_flag = True
-                self.robot_do_chess(ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x,
-                                    ai_down_coordinate_y, is_eat)
+                self.robot_do_chess(
+                    ai_pick_coordinate_x,
+                    ai_pick_coordinate_y,
+                    ai_down_coordinate_x,
+                    ai_down_coordinate_y,
+                    is_eat,
+                )
                 self.working_flag = False
                 self.robot_back()
 
                 if res == 1:  # 胜负已分
-                    play_sound_thread('win')
+                    play_sound_thread("win")
                     self.restart()
                 elif res == 2:
-                    play_sound_thread('lost')
+                    play_sound_thread("lost")
                     self.restart()
                 elif res == 3:
-                    play_sound_thread('checkmate')
+                    play_sound_thread("checkmate")
                 else:
                     play_sound_thread("your")
             self.last_down_time = time.time()
 
-    def robot_do_chess(self, ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x, ai_down_coordinate_y,
-                       is_eat):
+    def robot_do_chess(
+        self,
+        ai_pick_coordinate_x,
+        ai_pick_coordinate_y,
+        ai_down_coordinate_x,
+        ai_down_coordinate_y,
+        is_eat,
+    ):
         # 这里算出来的是棋盘中交点的坐标，应该去取棋子的实际坐标
-        ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x, ai_down_coordinate_y = self.find_real_coordinate(
-            ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x, ai_down_coordinate_y,
-            is_eat)
+        (
+            ai_pick_coordinate_x,
+            ai_pick_coordinate_y,
+            ai_down_coordinate_x,
+            ai_down_coordinate_y,
+        ) = self.find_real_coordinate(
+            ai_pick_coordinate_x,
+            ai_pick_coordinate_y,
+            ai_down_coordinate_x,
+            ai_down_coordinate_y,
+            is_eat,
+        )
         if ai_pick_coordinate_x == 0:
             play_sound("chess_wrong")
             return
         # 棋盘坐标转机械臂坐标
-        ai_pick_coordinate_x, ai_pick_coordinate_y = plane_coordinate_transform(coordinate_x=ai_pick_coordinate_x,
-                                                                                coordinate_y=ai_pick_coordinate_y,
-                                                                                transform_x=TRANSFORM_X_CHESS,
-                                                                                transform_y=-self.length / 2,
-                                                                                transform_angle=0)
+        ai_pick_coordinate_x, ai_pick_coordinate_y = plane_coordinate_transform(
+            coordinate_x=ai_pick_coordinate_x,
+            coordinate_y=ai_pick_coordinate_y,
+            transform_x=TRANSFORM_X_CHESS,
+            transform_y=-self.length / 2,
+            transform_angle=0,
+        )
 
-        ai_down_coordinate_x, ai_down_coordinate_y = plane_coordinate_transform(coordinate_x=ai_down_coordinate_x,
-                                                                                coordinate_y=ai_down_coordinate_y,
-                                                                                transform_x=TRANSFORM_X_CHESS,
-                                                                                transform_y=-self.length / 2,
-                                                                                transform_angle=0)
+        ai_down_coordinate_x, ai_down_coordinate_y = plane_coordinate_transform(
+            coordinate_x=ai_down_coordinate_x,
+            coordinate_y=ai_down_coordinate_y,
+            transform_x=TRANSFORM_X_CHESS,
+            transform_y=-self.length / 2,
+            transform_angle=0,
+        )
         if is_eat:  # 需要吃子
             # 随机范围放置，防止堆太高
-            random_dump_coordinate = [CHESS_DUMP_COORDINATE[0] + random.randint(-25, 25),
-                                      CHESS_DUMP_COORDINATE[1] + random.randint(-25, 25), CHESS_DUMP_COORDINATE[2]]
-            self.robot_move_to((ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS), random_dump_coordinate,
-                               is_rude=True)
-        self.robot_move_to((ai_pick_coordinate_x, ai_pick_coordinate_y, HIGH_CHESS),
-                           (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS))
+            random_dump_coordinate = [
+                CHESS_DUMP_COORDINATE[0] + random.randint(-25, 25),
+                CHESS_DUMP_COORDINATE[1] + random.randint(-25, 25),
+                CHESS_DUMP_COORDINATE[2],
+            ]
+            self.robot_move_to(  # 执行实际运动控制
+                (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS),
+                random_dump_coordinate,
+                is_rude=True,
+            )
+        self.robot_move_to(  # 执行实际运动控制
+            (ai_pick_coordinate_x, ai_pick_coordinate_y, HIGH_CHESS),
+            (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS),
+        )
 
-    def find_real_coordinate(self, ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x,
-                             ai_down_coordinate_y,
-                             is_eat):
+    def find_real_coordinate(
+        self,
+        ai_pick_coordinate_x,
+        ai_pick_coordinate_y,
+        ai_down_coordinate_x,
+        ai_down_coordinate_y,
+        is_eat,
+    ):
         if len(self.all_chess_list) == 0:
             return 0, 0, 0, 0
         if is_eat:
-            index = self.find_min_dis_index(self.all_chess_list, ai_down_coordinate_x, ai_down_coordinate_y)
+            index = self.find_min_dis_index(
+                self.all_chess_list, ai_down_coordinate_x, ai_down_coordinate_y
+            )
             if index == ERROR_NUM:
                 return 0, 0, 0, 0
-            ai_down_coordinate_x, ai_down_coordinate_y, chess_class = self.all_chess_list[index]
-            play_sound_thread('eat', get_name_by_class(chess_class))
+            ai_down_coordinate_x, ai_down_coordinate_y, chess_class = (
+                self.all_chess_list[index]
+            )
+            play_sound_thread("eat", get_name_by_class(chess_class))
 
-        index = self.find_min_dis_index(self.all_chess_list, ai_pick_coordinate_x, ai_pick_coordinate_y)
+        index = self.find_min_dis_index(
+            self.all_chess_list, ai_pick_coordinate_x, ai_pick_coordinate_y
+        )
         if index == ERROR_NUM:
             return 0, 0, 0, 0
         ai_pick_coordinate_x, ai_pick_coordinate_y, _ = self.all_chess_list[index]
 
-        return ai_pick_coordinate_x, ai_pick_coordinate_y, ai_down_coordinate_x, ai_down_coordinate_y
+        return (
+            ai_pick_coordinate_x,
+            ai_pick_coordinate_y,
+            ai_down_coordinate_x,
+            ai_down_coordinate_y,
+        )
 
     def find_min_dis_index(self, all_chess_list, x, y):
         min_dis = 9999
@@ -571,21 +774,45 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         robot_pos_set = set()
         for coordinate_x, coordinate_y, c in coordinate_list:
             if c in self.our_class_list:  # 只计算玩家的棋子
-                pos_x = round(abs(coordinate_x - self.width_err) / (self.width - 2 * self.width_err) * 8)
-                pos_y = round(abs(coordinate_y - self.length_err) / (self.length - 2 * self.length_err) * 9)
+                pos_x = round(
+                    abs(coordinate_x - self.width_err)
+                    / (self.width - 2 * self.width_err)
+                    * 8
+                )
+                pos_y = round(
+                    abs(coordinate_y - self.length_err)
+                    / (self.length - 2 * self.length_err)
+                    * 9
+                )
                 our_pos_set.add((pos_x, pos_y, c))
 
             elif c in self.robot_class_list:
-                pos_x = round(abs(coordinate_x - self.width_err) / (self.width - 2 * self.width_err) * 8)
-                pos_y = round(abs(coordinate_y - self.length_err) / (self.length - 2 * self.length_err) * 9)
+                pos_x = round(
+                    abs(coordinate_x - self.width_err)
+                    / (self.width - 2 * self.width_err)
+                    * 8
+                )
+                pos_y = round(
+                    abs(coordinate_y - self.length_err)
+                    / (self.length - 2 * self.length_err)
+                    * 9
+                )
                 robot_pos_set.add((pos_x, pos_y))
         return our_pos_set, robot_pos_set
 
     def get_map_pos_2_class(self, coordinate_list):
         map_pos_2_class = [[0] * 10 for i in range(10)]
         for coordinate_x, coordinate_y, c in coordinate_list:
-            pos_x = round(abs(coordinate_x - self.width_err) / (self.width - 2 * self.width_err) * 8)
-            pos_y = round(abs(coordinate_y - self.length_err) / (self.length - 2 * self.length_err) * 9)
+            pos_x = round(
+                abs(coordinate_x - self.width_err)
+                / (self.width - 2 * self.width_err)
+                * 8
+            )
+            pos_y = round(
+                abs(coordinate_y - self.length_err)
+                / (self.length - 2 * self.length_err)
+                * 9
+            )
             map_pos_2_class[pos_x][pos_y] = c
         return map_pos_2_class
 
@@ -623,8 +850,11 @@ class ChessRobotMaster(BoardGamesRobotMaster):
             our_pick_pos = self.history_set - now_pos_set
             our_down_pos = now_pos_set - self.history_set
             LOG.info(f"玩家最后一次落子落子位置:{our_pick_pos} 至 {our_down_pos}")
-            if len(our_pick_pos) == 1 and len(our_down_pos) == 1 and list(our_pick_pos)[0][-1] == list(our_down_pos)[0][
-                -1]:
+            if (
+                len(our_pick_pos) == 1
+                and len(our_down_pos) == 1
+                and list(our_pick_pos)[0][-1] == list(our_down_pos)[0][-1]
+            ):
                 self.count += 1
                 if self.count == 2:
                     self.count = 0
@@ -635,11 +865,11 @@ class ChessRobotMaster(BoardGamesRobotMaster):
 class GrabRobotMaster(RobotMaster):
     PARAMS = YamlHandler(PARAMS_YAML).read_yaml()  # 读取params.yaml文件中配置的参数
     # 普通抓取模式工作台参数,读取用户自定义的参数
-    WIDTH = PARAMS['width_grab']  # 工作台宽，x方向
-    LENGTH = PARAMS['length_grab']  # 工作台长，y方向
-    HIGH = PARAMS['high_grab']  # 工作台高，z方向
-    TRANSFORM_X = PARAMS['transform_x_grab']  # 棋盘距离机械臂原点X轴的平移
-    MAP_CLASS_2_POS = PARAMS['map_class_2_pos']  # key:目标种类  value:抓取目标点
+    WIDTH = PARAMS["width_grab"]  # 工作台宽，x方向
+    LENGTH = PARAMS["length_grab"]  # 工作台长，y方向
+    HIGH = PARAMS["high_grab"]  # 工作台高，z方向
+    TRANSFORM_X = PARAMS["transform_x_grab"]  # 棋盘距离机械臂原点X轴的平移
+    MAP_CLASS_2_POS = PARAMS["map_class_2_pos"]  # key:目标种类  value:抓取目标点
 
     def __init__(self, width=WIDTH, length=LENGTH):
         super().__init__(width, length)
@@ -649,32 +879,48 @@ class GrabRobotMaster(RobotMaster):
         self.start_flag = True
 
     def is_robot_has_ik(self, coordinate):
-        coordinate_x, coordinate_y = plane_coordinate_transform(coordinate_x=coordinate[0],
-                                                                coordinate_y=coordinate[1],
-                                                                transform_x=GrabRobotMaster.TRANSFORM_X,
-                                                                transform_y=-self.length / 2,
-                                                                transform_angle=0)
+        coordinate_x, coordinate_y = plane_coordinate_transform(
+            coordinate_x=coordinate[0],
+            coordinate_y=coordinate[1],
+            transform_x=GrabRobotMaster.TRANSFORM_X,
+            transform_y=-self.length / 2,
+            transform_angle=0,
+        )
         has_ik1, _, _, _ = inverse_kinematics(coordinate_x, coordinate_y, coordinate[2])
-        has_ik2, _, _, _ = inverse_kinematics(coordinate_x, coordinate_y, coordinate[2] + 20)
+        has_ik2, _, _, _ = inverse_kinematics(
+            coordinate_x, coordinate_y, coordinate[2] + 20
+        )
         return has_ik1 & has_ik2
 
     # pixel:像素坐标  coordinate:物理坐标
     def work(self, pixel_list, img_shape):
-        coordinate_list = coordinate_mapping(pixel_list, self.width, self.length, img_shape[0], img_shape[1])
+        coordinate_list = coordinate_mapping(
+            pixel_list, self.width, self.length, img_shape[0], img_shape[1]
+        )
         if self.check_coordinate(coordinate_list):
             for coordinate_x, coordinate_y, _class in coordinate_list:
                 # 只抓取用户配置了的物体
                 if _class in GrabRobotMaster.MAP_CLASS_2_POS:
                     # 先判断机械臂有没有解
-                    if not self.is_robot_has_ik((coordinate_x, coordinate_y,
-                                                 GrabRobotMaster.HIGH + GrabRobotMaster.MAP_CLASS_2_POS[_class][
-                                                     'high'])):
+                    if not self.is_robot_has_ik(
+                        (
+                            coordinate_x,
+                            coordinate_y,
+                            GrabRobotMaster.HIGH
+                            + GrabRobotMaster.MAP_CLASS_2_POS[_class]["high"],
+                        )
+                    ):
                         play_sound("res")
                         return
 
                     self.working_flag = True
-                    self.robot_do_grab(coordinate_x, coordinate_y,
-                                       GrabRobotMaster.HIGH + GrabRobotMaster.MAP_CLASS_2_POS[_class]['high'], _class)
+                    self.robot_do_grab(
+                        coordinate_x,
+                        coordinate_y,
+                        GrabRobotMaster.HIGH
+                        + GrabRobotMaster.MAP_CLASS_2_POS[_class]["high"],
+                        _class,
+                    )
                     self.working_flag = False
 
                     if len(coordinate_list) < 2:
@@ -702,10 +948,15 @@ class GrabRobotMaster(RobotMaster):
 
     def robot_do_grab(self, coordinate_x, coordinate_y, coordinate_z, _class):
         # 棋盘坐标转机械臂坐标
-        coordinate_x, coordinate_y = plane_coordinate_transform(coordinate_x=coordinate_x,
-                                                                coordinate_y=coordinate_y,
-                                                                transform_x=GrabRobotMaster.TRANSFORM_X,
-                                                                transform_y=-self.length / 2,
-                                                                transform_angle=0)
+        coordinate_x, coordinate_y = plane_coordinate_transform(
+            coordinate_x=coordinate_x,
+            coordinate_y=coordinate_y,
+            transform_x=GrabRobotMaster.TRANSFORM_X,
+            transform_y=-self.length / 2,
+            transform_angle=0,
+        )
 
-        self.robot_move_to((coordinate_x, coordinate_y, coordinate_z), GrabRobotMaster.MAP_CLASS_2_POS[_class]['pos'])
+        self.robot_move_to(
+            (coordinate_x, coordinate_y, coordinate_z),
+            GrabRobotMaster.MAP_CLASS_2_POS[_class]["pos"],
+        )
