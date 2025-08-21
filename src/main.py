@@ -24,7 +24,7 @@ class MainWindow:
         Button(self.root, text="机械臂控制", command=self.button_serialport).grid(
             row=0, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
         )
-        Button(self.root, text="下棋对弈", command=self.button_detecter).grid(
+        Button(self.root, text="视觉检测&下棋", command=self.button_detecter).grid(
             row=1, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
         )
         Button(self.root, text="制作样本", command=self.button_generater).grid(
@@ -40,7 +40,7 @@ class MainWindow:
 
     def button_serialport(self):
         """
-        按钮触发事件，开一个线程去运行SerialPortAssistantWindow()这个窗口
+        按钮触发事件,开一个线程去运行SerialPortAssistantWindow()这个窗口
         并用window_flag_bit.value去标记这个窗口正在运行，防止同时开启多个SerialPortAssistantWindow()窗口
         """
         if self.window_flag_bit.value & (1 << 1) == 0:
@@ -54,7 +54,7 @@ class MainWindow:
 
     def button_detecter(self):
         """
-        同上
+        视觉检测->下棋
         """
         if self.window_flag_bit.value & (1 << 2) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 2)
@@ -68,7 +68,7 @@ class MainWindow:
 
     def button_generater(self):
         """
-        同上
+        制作样本
         生成功能与下棋功能都需要占用摄像头，不能同时开启
         """
         if self.window_flag_bit.value & (1 << 2) == 0:
@@ -83,7 +83,7 @@ class MainWindow:
 
     def button_yolodata(self):
         """
-        同上
+        生成数据集
         """
         if self.window_flag_bit.value & (1 << 3) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 3)
@@ -99,7 +99,8 @@ class MainWindow:
 
     def button_train(self):
         """
-        yolo的训练无法在子线程都完成，所以直接在主线程创建窗口
+        训练神经网络
+        yolo的训练无法在子线程都完成,所以直接在主线程创建窗口
         """
         if self.window_flag_bit.value & (1 << 4) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 4)
@@ -109,8 +110,4 @@ class MainWindow:
 
 if __name__ == "__main__":
     freeze_support()
-    MainWindow()
-
-
-def test():
     MainWindow()

@@ -3,7 +3,7 @@ import random
 import socket
 from tkinter import messagebox
 import time
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from math import sqrt
 
 from robot.tools import (
@@ -13,7 +13,6 @@ from robot.tools import (
     get_name_by_class,
     plane_coordinate_transform,
     YamlHandler,
-    Observer,
     GlobalVar,
 )
 from robot import LOG, ROOT, PARAMS_YAML, SERVER_ADDR, chess, gobang
@@ -60,6 +59,34 @@ TRANSFORM_X_CHESS = 120  # 棋盘距离机械臂原点X轴的平移
 # 其他公共参数
 ERROR_NUM = 9999  # 一个较大的值来做为错误值
 ROBOT_PARAMS = ROOT + "/robot_params.yaml"
+
+
+# 观察者基类
+class Observer(ABC):
+
+    @abstractmethod
+    def receive_message(self, topic, message):
+        pass
+
+
+# 被观察者基类
+class Observable:
+    def __init__(self):
+        self.topics = {}
+
+    def register(self, observer, topic):
+        if topic not in self.topics:
+            self.topics[topic] = []
+        self.topics[topic].append(observer)
+
+    def unregister(self, observer, topic):
+        if topic in self.topics:
+            self.topics[topic].remove(observer)
+
+    def publish(self, topic, *message):
+        if topic in self.topics:
+            for observer in self.topics[topic]:
+                observer.receive_message(topic, message)
 
 
 class RobotMaster(Observer):
