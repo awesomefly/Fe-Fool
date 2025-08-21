@@ -11,7 +11,8 @@ import threading
 
 from yolov5.detect_self import YoloDetecter
 from robot import robot_master, LOG, ROOT
-from robot.tools import Observable, get_cameras, YamlHandler, GlobalVar
+from robot.robot_master import Observable
+from robot.tools import get_cameras, YamlHandler, GlobalVar
 from robot.image_find_focus import FocusFinder
 
 MODEL_PATH = ROOT + "../yolov5/runs/train/exp/weights/best.pt"
@@ -26,6 +27,7 @@ def yolo_to_pixel(yolo_list, rows_b, cols_b):
     return data
 
 
+# 显示采集到的图像图片
 def tk_show_img(panel, img):
     # img = cv2.pyrDown(img)
     if img is not None:
@@ -37,6 +39,7 @@ def tk_show_img(panel, img):
         panel.update()
 
 
+# 通过Yolo 视觉检测能力，判断用户行为，并根据用户行为，调用机械臂动作
 class DetecterWindow(Observable):
     def __init__(self, root, window_flag_bit=None):
         super().__init__()
@@ -54,7 +57,7 @@ class DetecterWindow(Observable):
     def window(self, root):
         self.root = root
         self.root.config(width=400, height=1000)
-        self.root.title("下棋对弈")
+        self.root.title("视觉检测&下棋对弈")
         self.panel = tkinter.Label(self.root)
         self.panel.grid(row=0, column=1, sticky=("e", "w"))
         self.root.protocol("WM_DELETE_WINDOW", self.close)
@@ -92,6 +95,7 @@ class DetecterWindow(Observable):
         self.cameraselect.bind("<<ComboboxSelected>>", self.select_camera)
         self.cameraselect["value"] = get_cameras()
 
+        # 开始视觉检测，识别用户行为
         self.detect_button = tkinter.Button(
             self.root, text="开始检测", command=self.start_detect_cmd
         )
@@ -112,10 +116,10 @@ class DetecterWindow(Observable):
             command=self.set_chess_think_depth,
         )  # 调用执行函数，是数值显示在 Label控件中
         self.connect_button = tkinter.Button(
-            self.root, text="开始工作", command=self.connect_cmd
+            self.root, text="开始下棋&分类", command=self.connect_cmd
         )
 
-        # 工作类型
+        # 工作类型 0：未选择 1：五子棋 2：象棋 3：物体分类
         self.game_mode = tkinter.IntVar(self.root)
 
     def select_camera(self, *args):
@@ -150,18 +154,18 @@ class DetecterWindow(Observable):
             self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 2)
 
     def connect_cmd(self):
-        if self.connect_button["text"] == "开始工作":
+        if self.connect_button["text"] == "开始下棋&分类":
             if self.game_mode.get() == 0:
                 tkinter.messagebox.showerror("错误", "未选择模式", parent=self.root)
                 return
 
             if self.connect_robot(self.game_mode.get()):
-                self.connect_button["text"] = "返回选择其他模式"
+                self.connect_button["text"] = "停止下棋&分类"
             else:
                 tkinter.messagebox.showerror("错误", "未开启机械臂", parent=self.root)
         else:
             self.disconnect_robot()
-            self.connect_button["text"] = "开始工作"
+            self.connect_button["text"] = "开始下棋&分类"
 
     def connect_robot(self, game_mode):
         if self.connect_flag:
@@ -184,7 +188,7 @@ class DetecterWindow(Observable):
             self.radio_button_chess.grid_forget()
             self.radio_button_grab.grid_forget()
 
-            # 注册发布话题
+            # 注册观察者，消费视觉识别结果
             self.register(self.robot_master, "yolo_res")
             self.register(self.robot_master, "safety")
             return True
@@ -276,19 +280,22 @@ class DetecterWindow(Observable):
         pre_img = self.get_video_frame()  # 获取初始视频帧
         last_class_list = []
         focus_finder = FocusFinder()
-
         # 启动安全检测线程
         safe_thread = threading.Thread(target=self.safe_detect)
         safe_thread.setDaemon(True)
         safe_thread.start()
 
+        # 采集图像
+        # todo：是否会太频繁
         while self.detect_flag:
+            # start_time = time.time()
             cur_img = self.get_video_frame()
-            # 帧差异检测（过滤快速变化画面）
             diff = cv2.absdiff(cur_img, pre_img)
             max_diff = np.max(diff)
             pre_img = cur_img
-            if max_diff > 120:  # 像素差异阈值控制
+            # 稳定性前置过滤，确保抓取到稳定图像
+            if max_diff > 120:
+                # LOG.debug(f"相邻两帧像素差异最大值大于一百二:{max_diff}")
                 continue
 
             focus_image, has_res = focus_finder.find_focus(cur_img)
@@ -312,7 +319,7 @@ class DetecterWindow(Observable):
                 last_class_list = new_class_list
 
                 if self.connect_flag and is_correct:
-                    # 发布检测结果，供机器人控制模块
+                    # 发布检测结果，供机器人控制模块使用
                     self.publish("yolo_res", pixel_list, res_img.shape)
 
             # LOG.debug(f"本帧运行时间:{time.time() - start_time}")

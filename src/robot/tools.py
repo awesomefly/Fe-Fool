@@ -4,13 +4,13 @@ from random import choice, randint
 from playsound import playsound
 from math import cos, sin
 import numpy as np
-from cv2 import VideoCapture, CAP_DSHOW,cvtColor,COLOR_BGR2RGB,COLOR_RGB2BGR
-from PIL import ImageEnhance,Image
+from cv2 import VideoCapture, CAP_DSHOW, cvtColor, COLOR_BGR2RGB, COLOR_RGB2BGR
+from PIL import ImageEnhance, Image
 import yaml
 from shutil import copy
 from scipy.optimize import leastsq
 from threading import Thread
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 from robot import LOG, ROOT, IMAGE_DATA_PATH
 
@@ -31,56 +31,18 @@ class GlobalVar(object):
             return defValue
 
 
-# 单例基类
-class Singleton(object):
-    _instance = None
-
-    def __new__(cls, *args, **kw):
-        if cls._instance is None:
-            cls._instance = object.__new__(cls)
-        return cls._instance
-
-
-# 观察者基类
-class Observer(ABC):
-
-    @abstractmethod
-    def receive_message(self, topic, message):
-        pass
-
-
-# 被观察者基类
-class Observable:
-    def __init__(self):
-        self.topics = {}
-
-    def register(self, observer, topic):
-        if topic not in self.topics:
-            self.topics[topic] = []
-        self.topics[topic].append(observer)
-
-    def unregister(self, observer, topic):
-        if topic in self.topics:
-            self.topics[topic].remove(observer)
-
-    def publish(self, topic, *message):
-        if topic in self.topics:
-            for observer in self.topics[topic]:
-                observer.receive_message(topic, message)
-
-
 class YamlHandler:
     def __init__(self, filename):
         self.filename = filename
 
     def read_yaml(self):
         """读取yaml文件数据"""
-        with open(self.filename, encoding='utf-8') as f:
+        with open(self.filename, encoding="utf-8") as f:
             return yaml.load(f.read(), Loader=yaml.FullLoader)
 
     def write_yaml(self, data):
         """在yaml文件写入数据"""
-        with open(self.filename, encoding='utf-8', mode='w') as f:
+        with open(self.filename, encoding="utf-8", mode="w") as f:
             return yaml.dump(data, stream=f, allow_unicode=True)
 
 
@@ -96,12 +58,16 @@ class CurveFitting(object):
         return self.fun(param, angle, length) - engine
 
     def calc(self, angle_list, len_list, a):
-        params = leastsq(self.error, self.param_init, args=(angle_list, len_list, a))  # 进行拟合
+        params = leastsq(
+            self.error, self.param_init, args=(angle_list, len_list, a)
+        )  # 进行拟合
         LOG.info(f"拟合结果: {params[0]}")
         return params[0]
 
 
-def coordinate_mapping(pixel_list, physical_rows, physical_cols, pixel_rows, pixel_cols):
+def coordinate_mapping(
+    pixel_list, physical_rows, physical_cols, pixel_rows, pixel_cols
+):
     # LOG.debug(f"坐标映射: {physical_rows}, {physical_cols}, {pixel_rows}, {pixel_cols}")
     data = []
     for x, y, c in pixel_list:
@@ -111,10 +77,14 @@ def coordinate_mapping(pixel_list, physical_rows, physical_cols, pixel_rows, pix
     return data
 
 
-def plane_coordinate_transform(coordinate_x, coordinate_y, transform_x, transform_y, transform_angle):
-    transform_matrix = [[cos(transform_angle), -sin(transform_angle), transform_x],
-                        [sin(transform_angle), cos(transform_angle), transform_y],
-                        [0, 0, 1]]
+def plane_coordinate_transform(
+    coordinate_x, coordinate_y, transform_x, transform_y, transform_angle
+):
+    transform_matrix = [
+        [cos(transform_angle), -sin(transform_angle), transform_x],
+        [sin(transform_angle), cos(transform_angle), transform_y],
+        [0, 0, 1],
+    ]
 
     input_coordinate = np.array([coordinate_x, coordinate_y, 1])
     transform_matrix = np.array(transform_matrix)
@@ -131,7 +101,7 @@ def play_sound_thread(*args):
 
 
 def play_sound(*args):
-    SOUND_PATH = ROOT + '/src/sound/'
+    SOUND_PATH = ROOT + "/src/sound/"
     for str_sound in args:
         path_list = []
         for filename in os.listdir(SOUND_PATH):
@@ -141,9 +111,9 @@ def play_sound(*args):
 
 
 def get_name_by_class(_class):
-    file_path = GlobalVar.get_value('DATA_YAML_PATH')
+    file_path = GlobalVar.get_value("DATA_YAML_PATH")
     data = YamlHandler(file_path).read_yaml()
-    name = data['names'][_class]
+    name = data["names"][_class]
     # LOG.debug(f"{name}")
     return name
 
@@ -156,6 +126,7 @@ def transparence_to_white(img):
     img_new[transparence < rand_threshold] = [255, 255, 255]
     return img_new
 
+
 def random_brightness(image, min_factor=0.6, max_factor=1.3):
     image = Image.fromarray(cvtColor(image, COLOR_BGR2RGB))
     factor = np.random.uniform(min_factor, max_factor)
@@ -163,6 +134,7 @@ def random_brightness(image, min_factor=0.6, max_factor=1.3):
     image = image_enhancer_brightness.enhance(factor)
     image = cvtColor(np.asarray(image), COLOR_RGB2BGR)
     return image
+
 
 def add_salt_noise(img):
     # # 指定信噪比
@@ -214,17 +186,20 @@ def change_hand_label(newlabel):
 
                                 SaveList = []
                                 # 读取文本内容到列表
-                                with open(txt_path, "r", encoding='utf-8') as f:
+                                with open(txt_path, "r", encoding="utf-8") as f:
                                     for line in f:
-                                        line = line.strip('\n')  # 删除换行符
-                                        line_new = str(newlabel) + ' ' + line.split(' ', 1)[1]
+                                        line = line.strip("\n")  # 删除换行符
+                                        line_new = (
+                                            str(newlabel) + " " + line.split(" ", 1)[1]
+                                        )
                                         SaveList.append(line_new)
                                     f.close()
 
-                                with open(txt_path, 'w') as f:
+                                with open(txt_path, "w") as f:
                                     for line in SaveList:
-                                        f.write(line + '\n')
+                                        f.write(line + "\n")
                                     f.close()
+
 
 def copyfile(source_path, target_path):
     if not os.path.exists(target_path):
@@ -236,12 +211,13 @@ def copyfile(source_path, target_path):
                 src_file = os.path.join(root, file)
                 copy(src_file, target_path)
 
-    LOG.info('复制成功')
+    LOG.info("复制成功")
 
 
 import pickle
 import numpy as np
 from scipy.interpolate import interp1d
+
 
 class FunctionFitter:
     def __init__(self, x, y):
@@ -249,26 +225,26 @@ class FunctionFitter:
         self.y = y
         self.f = interp1d(self.x, self.y)
 
-
     def plot(self):
         import matplotlib.pyplot as plt
+
         xx = np.linspace(self.x.min(), self.x.max(), 1000)
         yy = self.f(xx)
-        plt.rcParams['font.sans-serif'] = ['SimHei']
-        plt.rcParams['axes.unicode_minus'] = False
-        plt.plot(self.x, self.y, 'o', label='误差')
-        plt.plot(xx, yy, label='拟合的误差函数')
-        plt.title('关闭该窗口继续操作')
+        plt.rcParams["font.sans-serif"] = ["SimHei"]
+        plt.rcParams["axes.unicode_minus"] = False
+        plt.plot(self.x, self.y, "o", label="误差")
+        plt.plot(xx, yy, label="拟合的误差函数")
+        plt.title("关闭该窗口继续操作")
         plt.legend()
         plt.show()
 
     def save(self, filename):
-        with open(filename, 'wb') as file:
+        with open(filename, "wb") as file:
             pickle.dump(self.f, file)
 
     @classmethod
     def load(cls, filename):
-        with open(filename, 'rb') as file:
+        with open(filename, "rb") as file:
             f = pickle.load(file)
         x = f.x
         y = f.y

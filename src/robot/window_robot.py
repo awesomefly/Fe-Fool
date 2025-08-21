@@ -262,11 +262,13 @@ class RobotSerialPortWindow:
         )
         self.locatebutton.pack()
 
+        # 监听指令
+        # todo：链接机械臂时自动开启监听
         spacelabel = tk.Label(optionframebottom, width=5, height=1)
         spacelabel.pack()
         self.runbutton = tk.Button(
             optionframebottom,
-            text="移动棋子",
+            text="开始监听指令",
             width=20,
             height=1,
             command=self.runbuttoncmd,
@@ -285,6 +287,7 @@ class RobotSerialPortWindow:
         )
         self.sendbutton.pack(side="top")
 
+        # 上位机
         spacelabel = tk.Label(operateframeright, width=5, height=1)
         spacelabel.pack()
         self.calcparambutton = tk.Button(
@@ -852,20 +855,21 @@ class RobotSerialPortWindow:
         self.restoration()
 
     def runbuttoncmd(self):
-        if self.runbutton["text"] == "移动棋子":
+        if self.runbutton["text"] == "开始监听指令":
             if not self.serial.isOpen():
                 tk.messagebox.showerror(
                     title="无法抓取", message="请先连接机械臂", parent=self.root
                 )
                 return
+            # 开启线程循环等待下棋指令、移动机械臂
             t1 = threading.Thread(target=self.working)
             t1.setDaemon(True)
             t1.start()
             self.working__flag = True
-            self.runbutton["text"] = "结束抓取"
+            self.runbutton["text"] = "停止监听指令"
         else:
             self.working__flag = False
-            self.runbutton["text"] = "移动棋子"
+            self.runbutton["text"] = "开始监听指令"
             self.restoration()
             self.server.close()
 
@@ -1024,7 +1028,7 @@ class RobotSerialPortWindow:
         self.server.listen(5)  # 监听，设置最大数量是5
         self.pause_flag = False
         self.last_command = ""
-        LOG.debug("开始等待接受客户端数据----")
+        LOG.debug("----开始等待接受客户端下棋指令----")
         while self.working__flag:
             try:
                 self.conn, addr = self.server.accept()  # 获取客户端地址
