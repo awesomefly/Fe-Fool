@@ -927,6 +927,19 @@ class RobotSerialPortWindow:
     def suckup(self):
         if not self.serial.isOpen():
             return
+
+        data = "M13\r"
+        self.serial.write(data[0:-1].encode(self.encoding))
+
+        """ 
+        # 自定义串口协议的控制指令格式为：{#<设备地址>P<压力值>T<时间值>!}
+        # 协议字段说明：
+        # {# ：命令帧起始
+        # !} ：结束标志
+        # <设备地址>：2位十进制数，标识控制的硬件模块（如 004 表示气泵控制器）
+        # P<压力值>：P后接4位数字，表示气泵压力（单位：mbar或Pa，需结合硬件手册确认）
+        # T<时间值>：T后接3位数字，表示动作持续时间（单位：毫秒）
+
         data = "{#004P1000T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
         time.sleep(0.21)
@@ -943,12 +956,17 @@ class RobotSerialPortWindow:
         self.serial.write(data[0:-1].encode(self.encoding))
         time.sleep(0.21)
         # self.serial.write(data[0:-1].encode(self.encoding))
-        # time.sleep(0.3)
+        # time.sleep(0.3) 
+        """
 
     # 气泵放
     def suckdown(self):
         if not self.serial.isOpen():
             return
+        data = "M14\r"
+
+        """ 
+        self.serial.write(data[0:-1].encode(self.encoding))
         data = "{#004P2200T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
         time.sleep(0.21)
@@ -959,7 +977,8 @@ class RobotSerialPortWindow:
         self.serial.write(data[0:-1].encode(self.encoding))
         time.sleep(0.11)
         # self.serial.write(data[0:-1].encode(self.encoding))
-        # time.sleep(0.3)
+        # time.sleep(0.3) 
+        """
 
     def angle2engine(self, angle, num):
         if num == 0 or num == 1:
@@ -969,6 +988,12 @@ class RobotSerialPortWindow:
 
     # 机械臂运动
     def robotrun(self, offset, t=0):
+        # SCARA机械臂的运动逆解是在下位机上进行的，这里直接发送坐标即可
+        self.sendmsg(
+            engine0=offset[0], engine1=offset[1], engine2=offset[2], run_time=int(t)
+        )
+
+        """
         hasik, angle0, angle1, angle2 = inverse_kinematics(
             offset[0], offset[1], offset[2]
         )
@@ -1002,6 +1027,7 @@ class RobotSerialPortWindow:
             return True
         else:
             return False
+        """
 
     def robotrun_angle(self, angle_list):
         angle0, angle1, angle2 = angle_list
@@ -1107,11 +1133,28 @@ class RobotSerialPortWindow:
         engine0=INIT_ENGINE,
         engine1=INIT_ENGINE,
         engine2=INIT_ENGINE,
-        engine3=INIT_ENGINE,
+        engine3=INIT_ENGINE,  # 预留第四关节，暂时不启用
         run_time=1000,
     ):
         if not self.serial.isOpen():
             return
+
+        # SCARA机械臂直接发送坐标
+        data = (
+            "G91\rG1 X"
+            + str(engine0)
+            + " Y"
+            + str(engine1)
+            + " Z"
+            + str(engine2)
+            + " F"
+            + str(run_time)
+            + "\r"
+        )
+        self.serial.write(data[0:-1].encode(self.encoding))
+        return True
+
+        """ 
         MAX_ENGINE = 2500
         MIN_ENGINE = 500
         engine0 = engine0 if engine0 <= MAX_ENGINE else MAX_ENGINE
@@ -1147,7 +1190,8 @@ class RobotSerialPortWindow:
         # LOG.debug(data.encode(self.encoding))
         self.serial.write(data.encode(self.encoding))
         time.sleep(run_time / 1000.0 + 0.1)
-        self.last_engine_list = [engine0, engine1, engine2]
+        self.last_engine_list = [engine0, engine1, engine2] 
+        """
 
 
 if __name__ == "__main__":

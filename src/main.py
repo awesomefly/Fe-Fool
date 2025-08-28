@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from tkinter import Tk, Button, Toplevel
 from multiprocessing import Value, freeze_support
-import threading
+import threading, traceback
 
 from robot.window_robot import RobotSerialPortWindow
 from robot.window_detection import DetecterWindow
@@ -45,9 +45,10 @@ class MainWindow:
         """
         if self.window_flag_bit.value & (1 << 1) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 1)
-            serialport_process = threading.Thread(target=self.serialport)
-            serialport_process.setDaemon(True)
-            serialport_process.start()
+            self.root.after(0, self.serialport)
+            # serialport_process = threading.Thread(target=self.serialport)
+            # serialport_process.setDaemon(True)
+            # serialport_process.start()
 
     def serialport(self):
         RobotSerialPortWindow(self.window_flag_bit)
@@ -109,5 +110,9 @@ class MainWindow:
 
 
 if __name__ == "__main__":
-    freeze_support()
-    MainWindow()
+    try:
+        freeze_support()
+        MainWindow()
+    except Exception as e:
+        print(e)
+        traceback.print_exc()
