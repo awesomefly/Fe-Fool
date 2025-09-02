@@ -160,7 +160,7 @@ def get_cameras(cam_preset_num=4):
     cnt = 0
     cameras_list = []
     for device in range(0, cam_preset_num):
-        stream = VideoCapture(device, CAP_DSHOW)
+        stream = VideoCapture(device)  # , CAP_DSHOW)
         grabbed = stream.grab()
         stream.release()
         if not grabbed:

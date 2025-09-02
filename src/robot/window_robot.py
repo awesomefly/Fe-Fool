@@ -70,17 +70,17 @@ class RobotSerialPortWindow:
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
         self.face = tk.Frame(self.root)
-        self.face.config(height=640, width=960)
+        self.face.config(height=640, width=960, bd=1, relief="solid", bg="#f0f0f0")
         self.face.propagate(False)
         self.face.pack(anchor="nw")
 
         spaceframe1 = tk.Frame(self.face)
-        spaceframe1.config(height=140, width=10)
+        spaceframe1.config(height=140, width=10, bd=1, relief="solid", bg="#a0a0a0")
         spaceframe1.propagate(False)
         spaceframe1.pack(anchor="nw", side="left")
 
         textframe1 = tk.Frame(self.face)
-        textframe1.config(height=140, width=725)
+        textframe1.config(height=140, width=725, bd=1, relief="solid")
         textframe1.propagate(False)
         textframe1.pack(anchor="nw", side="bottom")
 

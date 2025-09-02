@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from tkinter import Tk, Button, Toplevel
-from multiprocessing import Value, freeze_support
+from multiprocessing import Value, freeze_support, Process
 import threading, traceback
 
 from robot.window_robot import RobotSerialPortWindow
@@ -20,6 +20,8 @@ class MainWindow:
     def window(self):
         self.root = Tk()
         self.root.title("铁憨憨")
+        self.root.geometry("960x640")
+        self.root.protocol("WM_DELETE_WINDOW", self.root.quit)
 
         Button(self.root, text="机械臂控制", command=self.button_serialport).grid(
             row=0, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
@@ -36,6 +38,7 @@ class MainWindow:
         Button(self.root, text="一键训练神经网络", command=self.button_train).grid(
             row=4, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
         )
+
         self.root.mainloop()
 
     def button_serialport(self):
@@ -45,9 +48,9 @@ class MainWindow:
         """
         if self.window_flag_bit.value & (1 << 1) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 1)
-            self.root.after(0, self.serialport)
-            # serialport_process = threading.Thread(target=self.serialport)
-            # serialport_process.setDaemon(True)
+            self.root.after(100, self.serialport)
+            # serialport_process = Process(target=self.serialport)
+            # serialport_process.daemon = True
             # serialport_process.start()
 
     def serialport(self):
@@ -59,9 +62,10 @@ class MainWindow:
         """
         if self.window_flag_bit.value & (1 << 2) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 2)
-            detecter_process = threading.Thread(target=self.detecter_run)
-            detecter_process.setDaemon(True)
-            detecter_process.start()
+            self.root.after(0, self.detecter_run)
+            # detecter_process = threading.Thread(target=self.detecter_run)
+            # detecter_process.setDaemon(True)
+            # detecter_process.start()
 
     def detecter_run(self):
         root = Toplevel(self.root)
@@ -74,9 +78,10 @@ class MainWindow:
         """
         if self.window_flag_bit.value & (1 << 2) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 2)
-            generater_process = threading.Thread(target=self.generater_run)
-            generater_process.setDaemon(True)
-            generater_process.start()
+            self.root.after(0, self.generater_run)
+            # generater_process = threading.Thread(target=self.generater_run)
+            # generater_process.setDaemon(True)
+            # generater_process.start()
 
     def generater_run(self):
         root = Toplevel(self.root)
@@ -88,9 +93,10 @@ class MainWindow:
         """
         if self.window_flag_bit.value & (1 << 3) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 3)
-            yolodata_process = threading.Thread(target=self.yolodata_run)
-            yolodata_process.setDaemon(True)
-            yolodata_process.start()
+            self.root.after(0, self.yolodata_run)
+            # yolodata_process = threading.Thread(target=self.yolodata_run)
+            # yolodata_process.setDaemon(True)
+            # yolodata_process.start()
 
     def yolodata_run(self):
         root = Toplevel(self.root)
@@ -105,8 +111,11 @@ class MainWindow:
         """
         if self.window_flag_bit.value & (1 << 4) == 0:
             self.window_flag_bit.value = self.window_flag_bit.value | (1 << 4)
-            root = Toplevel(self.root)
-            TrainModelWindow(root, self.window_flag_bit)
+            self.root.after(0, self.train_run)
+
+    def train_run(self):
+        root = Toplevel(self.root)
+        TrainModelWindow(root, self.window_flag_bit)
 
 
 if __name__ == "__main__":
