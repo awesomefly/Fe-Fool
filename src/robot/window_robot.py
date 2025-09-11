@@ -70,20 +70,22 @@ class RobotSerialPortWindow:
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
         self.face = tk.Frame(self.root)
-        self.face.config(height=640, width=960, bd=1, relief="solid", bg="#f0f0f0")
+        self.face.config(height=640, width=725, bd=1)
         self.face.propagate(False)
-        self.face.pack(anchor="nw")
+        self.face.pack(anchor="nw", side="left")
 
-        spaceframe1 = tk.Frame(self.face)
-        spaceframe1.config(height=140, width=10, bd=1, relief="solid", bg="#a0a0a0")
-        spaceframe1.propagate(False)
-        spaceframe1.pack(anchor="nw", side="left")
-
-        textframe1 = tk.Frame(self.face)
-        textframe1.config(height=140, width=725, bd=1, relief="solid")
+        textframe1 = tk.Frame(
+            self.face,
+            highlightbackground="red",
+            highlightcolor="red",
+            highlightthickness=2,
+            bd=0,
+        )
+        textframe1.config(height=140, width=725, bd=1, relief="solid", bg="#a0a0a0")
         textframe1.propagate(False)
         textframe1.pack(anchor="nw", side="bottom")
 
+        # display client command text
         self.rectext1 = tk.Text(
             textframe1, height=35, width=99, bg="black", fg="#00FF00"
         )
@@ -95,8 +97,14 @@ class RobotSerialPortWindow:
         self.recscrollbar1.pack(side="left", fill=tk.Y)
 
         # operate frame
-        operateframe = tk.Frame(self.face)
-        operateframe.config(height=140, width=960)
+        operateframe = tk.Frame(
+            self.face,
+            highlightbackground="green",
+            highlightcolor="green",
+            highlightthickness=2,
+            bd=0,
+        )
+        operateframe.config(height=140, width=725, relief="solid", bg="#a0a0a0")
         operateframe.propagate(False)
         operateframe.pack(anchor="nw", side="bottom")
 
@@ -128,12 +136,18 @@ class RobotSerialPortWindow:
         self.sendscrollbar.pack(side="left", fill=tk.Y)
 
         # text frame
-        textframe = tk.Frame(self.face)
-        textframe.config(height=350, width=725)
+        textframe = tk.Frame(
+            self.face,
+            highlightbackground="blue",
+            highlightcolor="blue",
+            highlightthickness=2,
+            bd=0,
+        )
+        textframe.config(height=350, width=725, relief="solid", bg="#a0a0a0")
         textframe.propagate(False)
         textframe.pack(anchor="nw", side="left")
 
-        # text black
+        # serial text black, 展示串口数据
         self.rectext = tk.Text(textframe, height=35, width=99, bg="black", fg="#00FF00")
         self.recscrollbar = tk.Scrollbar(textframe)
         self.rectext["yscrollcommand"] = self.recscrollbar.set
@@ -142,17 +156,22 @@ class RobotSerialPortWindow:
         self.rectext.pack(side=tk.LEFT, fill=tk.BOTH)
         self.recscrollbar.pack(side="left", fill=tk.Y)
 
-        # option frame
-        optionframe = tk.Frame(self.face)
-        optionframe.config(height=900.0, width=225)
-        optionframe.propagate(False)
-        optionframe.pack(anchor="ne", side="right")
+        # right frame
+        rightframe = tk.Frame(
+            self.root,
+            highlightbackground="yellow",
+            highlightcolor="yellow",
+            highlightthickness=2,
+            bd=0,
+        )
+        rightframe.config(height=640.0, width=225, relief="solid", bg="#a0a0a0")
+        rightframe.propagate(False)
+        rightframe.pack(anchor="nw", side="left")
 
-        # option
-        optionframebottom = tk.Frame(optionframe)
-        optionframebottom.config(height=180.0, width=225)
-        optionframebottom.propagate(False)
-        optionframebottom.pack(anchor="sw", side="bottom")
+        optionframe = tk.Frame(rightframe)
+        optionframe.config(height=180.0, width=225, relief="solid", bg="#a0a0a0")
+        optionframe.propagate(False)
+        optionframe.pack(anchor="nw", side="top")
 
         # left
         optionframeleft = tk.Frame(optionframe)
@@ -164,6 +183,11 @@ class RobotSerialPortWindow:
         optionframeright.config(height=180.0, width=165)
         optionframeright.propagate(False)
         optionframeright.pack(anchor="nw", side="left")
+        # bottom
+        optionframebottom = tk.Frame(rightframe)
+        optionframebottom.config(height=450.0, width=225)
+        optionframebottom.propagate(False)
+        optionframebottom.pack(anchor="nw", side="bottom")
 
         # serial
         spacelabel = tk.Label(optionframeleft, width=5, height=1)
@@ -250,6 +274,54 @@ class RobotSerialPortWindow:
         )
         self.openbutton.pack()
 
+        # 上位机
+        spacelabel = tk.Label(optionframebottom, width=5, height=1)
+        spacelabel.pack()
+        self.calcparambutton = tk.Button(
+            optionframebottom,
+            text="机械臂校准",
+            width=20,
+            height=1,
+            command=self.calcparam,
+        )
+        self.calcparambutton.pack()
+
+        # send botton
+        spacelabel = tk.Label(optionframebottom, width=5, height=1)
+        spacelabel.pack()
+        self.sendbutton = tk.Button(
+            optionframebottom,
+            text="发送坐标",
+            width=20,
+            height=1,
+            command=self.sendbuttoncmd,
+        )
+        self.sendbutton.pack()
+
+        # suck botton
+        spacelabel = tk.Label(optionframebottom, width=5, height=1)
+        spacelabel.pack()
+        self.suckupbutton = tk.Button(
+            optionframebottom,
+            text="打开吸泵",
+            width=20,
+            height=1,
+            command=self.suckup,
+        )
+        self.suckupbutton.pack()
+
+        # suck down
+        spacelabel = tk.Label(optionframebottom, width=5, height=1)
+        spacelabel.pack()
+        self.suckdownbutton = tk.Button(
+            optionframebottom,
+            text="关闭吸泵",
+            width=20,
+            height=1,
+            command=self.suckdown,
+        )
+        self.suckdownbutton.pack()
+
         # remote
         spacelabel = tk.Label(optionframebottom, width=5, height=1)
         spacelabel.pack()
@@ -268,36 +340,12 @@ class RobotSerialPortWindow:
         spacelabel.pack()
         self.runbutton = tk.Button(
             optionframebottom,
-            text="开始监听指令",
+            text="开始下棋",
             width=20,
             height=1,
             command=self.runbuttoncmd,
         )
         self.runbutton.pack()
-
-        # send botton
-        spacelabel = tk.Label(operateframeright, width=5, height=1)
-        spacelabel.pack()
-        self.sendbutton = tk.Button(
-            operateframeright,
-            text="发送坐标",
-            width=20,
-            height=1,
-            command=self.sendbuttoncmd,
-        )
-        self.sendbutton.pack(side="top")
-
-        # 上位机
-        spacelabel = tk.Label(operateframeright, width=5, height=1)
-        spacelabel.pack()
-        self.calcparambutton = tk.Button(
-            operateframeright,
-            text="机械臂校准",
-            width=20,
-            height=1,
-            command=self.calcparam,
-        )
-        self.calcparambutton.pack()
 
         self.root.mainloop()
 
@@ -370,21 +418,21 @@ class RobotSerialPortWindow:
                 self.paramwindow, text="确定该点已校准", command=self.addparabuttoncmd
             )
             addparabutton.grid(
-                row=4, column=1, ipadx=20, ipady=10, padx=20, pady=20, sticky=("e", "w")
+                row=5, column=1, ipadx=10, ipady=5, padx=20, pady=20, sticky=("e", "w")
             )
 
             testninebutton = tk.Button(
                 self.paramwindow, text="9点测试", command=self.testninebuttoncmd
             )
             testninebutton.grid(
-                row=5, column=1, ipadx=20, ipady=10, padx=20, pady=20, sticky=("e", "w")
+                row=6, column=1, ipadx=10, ipady=5, padx=20, pady=20, sticky=("e", "w")
             )
 
             calcbutton = tk.Button(
                 self.paramwindow, text="停止校准", command=self.stop_calc
             )
             calcbutton.grid(
-                row=6, column=1, ipadx=20, ipady=10, padx=20, pady=20, sticky=("e", "w")
+                row=7, column=1, ipadx=10, ipady=5, padx=20, pady=20, sticky=("e", "w")
             )
 
             self.len_params = []
@@ -855,7 +903,7 @@ class RobotSerialPortWindow:
         self.restoration()
 
     def runbuttoncmd(self):
-        if self.runbutton["text"] == "开始监听指令":
+        if self.runbutton["text"] == "开始下棋":
             if not self.serial.isOpen():
                 tk.messagebox.showerror(
                     title="无法抓取", message="请先连接机械臂", parent=self.root
@@ -866,10 +914,10 @@ class RobotSerialPortWindow:
             t1.setDaemon(True)
             t1.start()
             self.working__flag = True
-            self.runbutton["text"] = "停止监听指令"
+            self.runbutton["text"] = "停止下棋"
         else:
             self.working__flag = False
-            self.runbutton["text"] = "开始监听指令"
+            self.runbutton["text"] = "开始下棋"
             self.restoration()
             self.server.close()
 
@@ -964,9 +1012,9 @@ class RobotSerialPortWindow:
         if not self.serial.isOpen():
             return
         data = "M14\r"
+        self.serial.write(data[0:-1].encode(self.encoding))
 
         """ 
-        self.serial.write(data[0:-1].encode(self.encoding))
         data = "{#004P2200T0200!}\n"
         self.serial.write(data[0:-1].encode(self.encoding))
         time.sleep(0.21)
@@ -1130,6 +1178,7 @@ class RobotSerialPortWindow:
     # 串口发送指令到机械臂
     def sendmsg(
         self,
+        command: str = "G1",
         engine0=INIT_ENGINE,
         engine1=INIT_ENGINE,
         engine2=INIT_ENGINE,
@@ -1141,7 +1190,8 @@ class RobotSerialPortWindow:
 
         # SCARA机械臂直接发送坐标
         data = (
-            "G91\rG1 X"
+            command
+            + " X"
             + str(engine0)
             + " Y"
             + str(engine1)
@@ -1152,6 +1202,7 @@ class RobotSerialPortWindow:
             + "\r"
         )
         self.serial.write(data[0:-1].encode(self.encoding))
+        LOG.debug(f"msg:{data[0:-1]}")
         return True
 
         """ 
