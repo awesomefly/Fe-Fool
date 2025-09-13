@@ -968,6 +968,11 @@ class RobotSerialPortWindow:
     def restoration(self):
         if not self.serial.isOpen():
             return
+
+        # Default ABSOLUTE MODE
+        data = "G90\r"
+        self.serial.write(data[0:-1].encode(self.encoding))
+
         self.sendmsg()
         self.last_angle_list = [0, 0, 0]
 
@@ -976,7 +981,7 @@ class RobotSerialPortWindow:
         if not self.serial.isOpen():
             return
 
-        data = "M13\r"
+        data = "M3\r"
         self.serial.write(data[0:-1].encode(self.encoding))
 
         """ 
@@ -1011,7 +1016,7 @@ class RobotSerialPortWindow:
     def suckdown(self):
         if not self.serial.isOpen():
             return
-        data = "M14\r"
+        data = "M5\r"
         self.serial.write(data[0:-1].encode(self.encoding))
 
         """ 
