@@ -627,11 +627,11 @@ class ChessRobotMaster(BoardGamesRobotMaster):
                     ai_pick_pos_x, ai_pick_pos_y
                 )
                 # 先判断机械臂有没有解
-                if not self.is_robot_has_ik(
-                    (ai_pick_coordinate_x, ai_pick_coordinate_y, HIGH_CHESS)
-                ):
-                    play_sound("res")
-                    return
+                # if not self.is_robot_has_ik(
+                #     (ai_pick_coordinate_x, ai_pick_coordinate_y, HIGH_CHESS)
+                # ):
+                #     play_sound("res")
+                #     return
 
                 # 将棋盘格子坐标转换为机械臂坐标
                 ai_down_pos_x, ai_down_pos_y = ai_down_pos
@@ -639,11 +639,11 @@ class ChessRobotMaster(BoardGamesRobotMaster):
                     ai_down_pos_x, ai_down_pos_y
                 )
                 # 先判断机械臂有没有解
-                if not self.is_robot_has_ik(
-                    (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS)
-                ):
-                    play_sound("res")
-                    return
+                # if not self.is_robot_has_ik(
+                #     (ai_down_coordinate_x, ai_down_coordinate_y, HIGH_CHESS)
+                # ):
+                #     play_sound("res")
+                #     return
 
                 self.history_set.add(our_down_pos)
                 self.history_set.remove(our_pick_pos)

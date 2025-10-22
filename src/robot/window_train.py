@@ -38,7 +38,7 @@ class TrainModelWindow:
             self.root, text="请输入训练设备(GPU输入0,CPU输入cpu):"
         )
         self.inp1 = tkinter.Entry(self.root)
-        self.inp1.insert(0, "0")
+        self.inp1.insert(0, "cpu")
         self.label1.grid(row=1, column=0)
         self.inp1.grid(row=1, column=1)
 

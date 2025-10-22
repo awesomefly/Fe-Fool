@@ -18,10 +18,10 @@ def findport():
     elif len(port_list) > 0:
         for com in port_list:  # 遍历整个列表
             print(com)  # 打印出查找的串口列表
-            if com.description.find("CH340") > 0:
+            if com.name.find("usbserial") > 0:
                 print("CH340串口")
-                print(com.name)  # 打印出查找的串口列表
-                portname = com.name
+                print(com.device)  # 打印出查找的串口列表
+                portname = com.device
     return portname
 
 
@@ -105,3 +105,7 @@ if __name__ == "__main__":
         print("\n收发信息程序已")
     else:
         print("找不到机械臂的串口\n")
+
+    import time
+
+    time.sleep(1000000)

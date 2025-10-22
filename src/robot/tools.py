@@ -4,7 +4,16 @@ from random import choice, randint
 from playsound import playsound
 from math import cos, sin
 import numpy as np
-from cv2 import VideoCapture, CAP_DSHOW, cvtColor, COLOR_BGR2RGB, COLOR_RGB2BGR
+from cv2 import (
+    VideoCapture,
+    CAP_DSHOW,
+    cvtColor,
+    COLOR_BGR2RGB,
+    COLOR_RGB2BGR,
+    CAP_PROP_FRAME_WIDTH,
+    CAP_PROP_FRAME_HEIGHT,
+    CAP_PROP_FPS,
+)
 from PIL import ImageEnhance, Image
 import yaml
 from shutil import copy
@@ -161,12 +170,19 @@ def get_cameras(cam_preset_num=4):
     cameras_list = []
     for device in range(0, cam_preset_num):
         stream = VideoCapture(device)  # , CAP_DSHOW)
-        grabbed = stream.grab()
+        if stream.isOpened():
+            # grabbed = stream.grab()
+            grabbed, frame = stream.read()
+            if grabbed:
+                cnt = cnt + 1
+                cameras_list.append(device)
+
+                width = stream.get(CAP_PROP_FRAME_WIDTH)
+                height = stream.get(CAP_PROP_FRAME_HEIGHT)
+                fps = stream.get(CAP_PROP_FPS)
+                LOG.info(f"摄像头 {device}: {width}x{height}, FPS: {fps}")
         stream.release()
-        if not grabbed:
-            break
-        cnt = cnt + 1
-        cameras_list.append(device)
+
     LOG.info(f"该设备所连接的相机数量为：{cnt}")
     return cameras_list
 

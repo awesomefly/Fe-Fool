@@ -29,6 +29,12 @@ def yolo_to_pixel(yolo_list, rows_b, cols_b):
 
 # 显示采集到的图像图片
 def tk_show_img(panel, img):
+    # 在窗口中显示这一帧图像
+    cv2.imshow("Camera Frame", img)
+    cv2.waitKey(
+        1
+    )  # cv2.waitKey(1) 是必要的，它会等待1毫秒，以便OpenCV能够处理窗口事件，如按键事件。如果没有这行代码，窗口可能会冻结，无法响应按键操作。
+
     # img = cv2.pyrDown(img)
     if img is not None:
         cv2image = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)  # 转换颜色从BGR到RGBA
@@ -37,6 +43,29 @@ def tk_show_img(panel, img):
         panel.pyimage1 = imgtk
         panel.config(image=imgtk)
         panel.update()
+
+
+def tk_show_img_opencv_only(panel, img, suffix=""):
+    if img is not None:
+        # 只使用OpenCV显示，跳过Tkinter部分
+        cv2.imshow(f"Camera Frame {suffix}", img)
+        key = cv2.waitKey(1) & 0xFF
+
+        # 在panel上显示状态信息而不是图像
+        try:
+            pass  # todo：版本不兼容
+            panel.config(
+                text=f"图像显示在OpenCV窗口中\n按'q'退出\n图像尺寸: {img.shape}"
+            )
+            panel.update()
+        except:
+            pass
+
+    # 如果按下'q'键就退出
+    # if key == ord("q"):
+    #     cv2.destroyAllWindows()
+    #     return False
+    return True
 
 
 # 通过Yolo 视觉检测能力，判断用户行为，并根据用户行为，调用机械臂动作
@@ -81,7 +110,7 @@ class DetecterWindow(Observable):
             self.root, text="请输入检测设备(GPU输入0,CPU输入cpu):"
         )
         self.inp1 = tkinter.Entry(self.root)
-        self.inp1.insert(0, "0")
+        self.inp1.insert(0, "cpu")
         self.label1.grid(row=2, column=0)
         self.inp1.grid(row=2, column=1)
 
@@ -116,7 +145,13 @@ class DetecterWindow(Observable):
             command=self.set_chess_think_depth,
         )  # 调用执行函数，是数值显示在 Label控件中
         self.connect_button = tkinter.Button(
-            self.root, text="开始下棋&分类", command=self.connect_cmd
+            self.root, text="连接机械臂", command=self.connect_cmd
+        )
+        self.connect_label = tkinter.Label(
+            self.root,
+            bg="#9FB6CD",
+            width=80,
+            text="点击「连接机械臂」按钮，开始下棋或物体分拣",
         )
 
         # 工作类型 0：未选择 1：五子棋 2：象棋 3：物体分类
@@ -131,41 +166,55 @@ class DetecterWindow(Observable):
         self.open_camera(dev)
 
     def open_camera(self, dev):
-        self.capture = cv2.VideoCapture(dev, cv2.CAP_DSHOW)
+        self.detect_flag = True
+        self.capture = cv2.VideoCapture(dev)  # , cv2.CAP_DSHOW)
+        img = self.get_video_frame()
+        tk_show_img_opencv_only(self.panel, img, suffix="[origin image]")
+
         # 设置分辨率
         # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        self.detect_flag = True
-        while self.detect_flag:
-            img = self.get_video_frame()
-            tk_show_img(self.panel, img)
 
     def get_video_frame(self):
         # 摄像头读取,ret为是否成功打开摄像头,true,false。 frame为视频的每一帧图像
-        ret, frame = self.capture.read()
-        if not ret:
-            tkinter.messagebox.showerror("错误", "摄像头无数据", parent=self.root)
-        return frame
+        retry_count = 0
+        max_retries = 3
+        while retry_count < max_retries:
+            ret, frame = self.capture.read()
+            if ret:
+                return frame
+            else:
+                retry_count += 1
+                LOG.debug(f"摄像头无数据，正在重试... ({retry_count}/{max_retries})")
+                time.sleep(0.1)  # 等待100ms后重试
+
+        # 重试3次后仍然失败
+        # tkinter.messagebox.showerror(
+        #     "错误", "摄像头无数据，已重试3次", parent=self.root
+        # )
+        return None
 
     def close(self):
         self.detect_flag = False
         self.root.destroy()
         if self.window_flag_bit is not None:
             self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 2)
+        # 关闭所有OpenCV imgShow窗口
+        cv2.destroyAllWindows()
 
     def connect_cmd(self):
-        if self.connect_button["text"] == "开始下棋&分类":
+        if self.connect_button["text"] == "连接机械臂":
             if self.game_mode.get() == 0:
                 tkinter.messagebox.showerror("错误", "未选择模式", parent=self.root)
                 return
 
             if self.connect_robot(self.game_mode.get()):
-                self.connect_button["text"] = "停止下棋&分类"
+                self.connect_button["text"] = "断开连接"
             else:
                 tkinter.messagebox.showerror("错误", "未开启机械臂", parent=self.root)
         else:
             self.disconnect_robot()
-            self.connect_button["text"] = "开始下棋&分类"
+            self.connect_button["text"] = "连接机械臂"
 
     def connect_robot(self, game_mode):
         if self.connect_flag:
@@ -222,11 +271,12 @@ class DetecterWindow(Observable):
         self.radio_button_chess.grid(row=5, column=1)
 
         self.radio_button_grab = tkinter.Radiobutton(
-            self.root, text="物体抓取", variable=self.game_mode, value=3
+            self.root, text="物体分类", variable=self.game_mode, value=3
         )
         self.radio_button_grab.grid(row=5, column=2)
 
         self.connect_button.grid(row=6, column=1)
+        self.connect_label.grid(row=6, column=2)
 
         self.detect()
 
@@ -290,19 +340,27 @@ class DetecterWindow(Observable):
         while self.detect_flag:
             # start_time = time.time()
             cur_img = self.get_video_frame()
+            if cur_img is None:
+                continue
+            tk_show_img_opencv_only(self.panel, cur_img, suffix="[origin image]")
+
             diff = cv2.absdiff(cur_img, pre_img)
             max_diff = np.max(diff)
             pre_img = cur_img
             # 稳定性前置过滤，确保抓取到稳定图像
-            if max_diff > 120:
-                # LOG.debug(f"相邻两帧像素差异最大值大于一百二:{max_diff}")
+            if max_diff > 180:
+                # LOG.debug(f"相邻两帧像素差异过大，画面不稳定:{max_diff}")
                 continue
 
+            # 取最大轮廓，即棋盘
             focus_image, has_res = focus_finder.find_focus(cur_img)
-
             if has_res:
+                # res_img: 经过检测标注的图像（可能在目标周围绘制了边界框）
+                # yolo_list: 检测到的目标列表，包含了检测到的对象类别、位置等信息
                 res_img, yolo_list = self.self_yolo.detect(focus_image)
-                tk_show_img(self.panel, res_img)
+                tk_show_img_opencv_only(
+                    self.panel, res_img, suffix="[yolo detect result]"
+                )
                 # 将YOLO输出的归一化坐标转换为像素坐标
                 pixel_list = yolo_to_pixel(
                     yolo_list, res_img.shape[0], res_img.shape[1]
@@ -311,18 +369,23 @@ class DetecterWindow(Observable):
                 # 安装类型排序，如果相邻两帧的检测结果相同，则认为是可信的
                 pixel_list.sort(key=lambda x: x[2], reverse=False)
                 new_class_list = [i[2] for i in pixel_list]
-                # LOG.debug(f"目标检测结果:{new_class_list}")
+                if len(new_class_list) == 0:
+                    LOG.debug(f"目标检测结果为空:{new_class_list}")
+                    continue
                 is_correct = False
                 if new_class_list == last_class_list:
-                    # LOG.debug(f"可信的目标检测结果:{pixel_list}")
+                    LOG.debug(f"目标检测结果:{new_class_list}")
+                    LOG.debug(f"可信的目标检测结果:{pixel_list}")
                     is_correct = True
                 last_class_list = new_class_list
 
                 if self.connect_flag and is_correct:
                     # 发布检测结果，供机器人控制模块使用
                     self.publish("yolo_res", pixel_list, res_img.shape)
+                    LOG.debug(f"publish yolo_res to robot")
 
             # LOG.debug(f"本帧运行时间:{time.time() - start_time}")
+            time.sleep(0.2)
         if self.detect_flag:
             self.close()
 
