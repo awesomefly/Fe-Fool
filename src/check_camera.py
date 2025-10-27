@@ -1,7 +1,7 @@
 import cv2
 import sys
 import time
-from robot.image_find_focus import FocusFinder
+from windows.image_find_focus import FocusFinder
 
 
 def diagnose_camera_issues():

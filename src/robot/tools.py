@@ -110,7 +110,7 @@ def play_sound_thread(*args):
 
 
 def play_sound(*args):
-    SOUND_PATH = ROOT + "/src/sound/"
+    SOUND_PATH = ROOT + "/sound/"
     for str_sound in args:
         path_list = []
         for filename in os.listdir(SOUND_PATH):
@@ -188,7 +188,7 @@ def get_cameras(cam_preset_num=4):
 
 
 def change_hand_label(newlabel):
-    for root, dirs, _ in os.walk(IMAGE_DATA_PATH + "hands"):
+    for root, dirs, _ in os.walk(IMAGE_DATA_PATH + "hands/output_yolo"):
         for dir in dirs:
             path = os.path.join(root, dir)
             if dir.endswith("labels"):

@@ -1,0 +1,337 @@
+# -*- coding: utf-8 -*-
+import time
+import numpy as np
+import cv2
+import os
+import tkinter, queue
+from tkinter import ttk, messagebox
+from PIL import Image, ImageTk
+
+from rembg import remove
+from rembg.session_factory import new_session
+from windows.image_find_focus import FocusFinder
+from robot.tools import get_cameras, YamlHandler
+from robot import LOG, PARAMS_YAML, IMAGE_DATA_PATH
+
+DATA_NAME = YamlHandler(PARAMS_YAML).read_yaml()[
+    "data_name"
+]  # image_data文件夹下自己的数据集文件名
+BACKGROUND_INPUT_PATH = IMAGE_DATA_PATH + DATA_NAME + "/background_imgs/"
+FOREGROUND_INPUT_PATH = IMAGE_DATA_PATH + DATA_NAME + "/foreground_imgs/"
+
+
+def tk_show_img(panel, img):
+    if img is not None:
+        # img = cv2.pyrDown(img)
+        cv2image = cv2.cvtColor(img, cv2.COLOR_BGR2RGBA)  # 转换颜色从BGR到RGBA
+        current_image = Image.fromarray(cv2image)  # 将图像转换成Image对象
+        imgtk = ImageTk.PhotoImage(image=current_image)
+        panel.pyimage1 = imgtk
+        panel.config(image=imgtk)
+        panel.update()
+
+
+def tk_show_img_opencv_only(panel, img, suffix="", update_panel=True):
+    if img is not None:
+        # 只使用OpenCV显示，跳过Tkinter部分
+        cv2.imshow(f"Camera {suffix}", img)
+        # key = cv2.waitKey(1) & 0xFF
+
+        # 在panel上显示状态信息而不是图像
+        if update_panel:
+            try:
+                # todo：版本不兼容
+                panel.config(
+                    text=f"图像显示在OpenCV窗口中\n按'q'退出\n图像尺寸: {img.shape}"
+                )
+                panel.update()
+            except:
+                pass
+    return True
+
+
+def resize_img_keep_ratio(img, target_size):
+    img = cv2.cvtColor(img, cv2.COLOR_RGBA2RGB)
+    old_size = img.shape[0:2]
+    # ratio = min(float(target_size)/(old_size))
+    ratio = min(float(target_size[i]) / (old_size[i]) for i in range(len(old_size)))
+    new_size = tuple([int(i * ratio) for i in old_size])
+    img = cv2.resize(img, (new_size[1], new_size[0]))
+    pad_w = target_size[1] - new_size[1]
+    pad_h = target_size[0] - new_size[0]
+    top, bottom = pad_h // 2, pad_h - (pad_h // 2)
+    left, right = pad_w // 2, pad_w - (pad_w // 2)
+    img_new = cv2.copyMakeBorder(
+        img, top, bottom, left, right, cv2.BORDER_CONSTANT, None, (0, 0, 0)
+    )
+    return img_new
+
+
+def crop_image(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    thresh = cv2.threshold(gray, 10, 255, cv2.THRESH_BINARY)[1]
+    contours, hierarchy = cv2.findContours(
+        thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    rect = cv2.minAreaRect(contours[0])
+    box = cv2.boxPoints(rect)
+
+    box = np.round(box).astype("int64")
+
+    ((_, _), (x2, y2), _) = rect
+    hight, width = x2, y2
+    aim_size = np.float32([[0, 0], [width, 0], [width, hight], [0, hight]])
+    raw_size = []
+
+    for x, y in box:
+        raw_size.append([x, y])
+
+    raw_size = np.float32(raw_size)
+    translate_map = cv2.getPerspectiveTransform(raw_size, aim_size)
+    translate_img = cv2.warpPerspective(img, translate_map, (int(width), int(hight)))
+    return translate_img
+
+
+cv_operation_queue = queue.Queue()
+
+
+class GeneraterWindow:
+    def __init__(self, root, window_flag_bit=None):
+        self.detect_flag = True
+        self.save_background_flag = False
+        self.save_foreground_flag = False
+        self.next_img_flag = False
+        self.is_first_frame = True
+        self.session = new_session("u2netp")
+
+        self.window_flag_bit = window_flag_bit
+        if not os.path.exists(BACKGROUND_INPUT_PATH):
+            os.makedirs(BACKGROUND_INPUT_PATH)
+        if not os.path.exists(FOREGROUND_INPUT_PATH):
+            os.makedirs(FOREGROUND_INPUT_PATH)
+        self.window(root)
+        # 启动OpenCV操作处理循环
+        self.process_cv_operations()
+
+    def process_cv_operations(self):
+        """在主线程中处理OpenCV操作"""
+        try:
+            while True:
+                operation = cv_operation_queue.get_nowait()
+                operation()
+        except queue.Empty:
+            pass
+        # 安排下一次处理
+        self.root.after(10, self.process_cv_operations)
+
+    def window(self, root):
+        self.root = root
+        self.root.config(width=400, height=1000)
+        self.root.title("样本制作")
+        self.root.protocol("WM_DELETE_WINDOW", self.close)
+
+        self.select_camera_label = tkinter.Label(self.root, text="请选择相机")
+        self.select_camera_label.grid(row=0, column=1)
+        self.select_camera_combobox = ttk.Combobox(self.root)
+        self.select_camera_combobox.bind("<<ComboboxSelected>>", self.select_camera)
+        self.select_camera_combobox["value"] = get_cameras()
+        self.select_camera_combobox.grid(row=0, column=2)
+
+        self.run_button = tkinter.Button(
+            self.root, text="开始制作样本", command=self.run
+        )
+
+        self.camera_panel = tkinter.Label(self.root)
+        self.camera_panel.grid(row=0, rowspan=5, column=0)
+
+        self.target_panel = tkinter.Label(self.root)
+        self.name_input_label = tkinter.Label(
+            self.root, text="请输入该物品的名字:", font=12
+        )
+        self.inp_name = tkinter.Entry(self.root)
+        self.class_input_label = tkinter.Label(
+            self.root, text="请输入该物品对应的类别序号(从0开始递增):", font=12
+        )
+        self.inp_class = tkinter.Entry(self.root)
+
+        self.save_background_button = tkinter.Button(
+            self.root, text="保存背景", command=self.save_background_img
+        )
+        self.save_foreground_button = tkinter.Button(
+            self.root, text="保存物体", command=self.save_foreground_img
+        )
+        self.next_img_button = tkinter.Button(
+            self.root, text="不保存/继续", command=self.next_img
+        )
+
+    def select_camera(self, *args):
+        self.select_camera_label.grid_forget()
+        self.select_camera_combobox.grid_forget()
+        self.run_button.grid(row=5, column=0)
+        dev = int(self.select_camera_combobox.get())
+        self.open_camera(dev)
+
+    def run(self):
+        self.run_button.grid_forget()
+
+        self.name_input_label.grid(row=0, column=1)
+        self.inp_name.grid(row=1, column=1)
+        self.class_input_label.grid(row=2, column=1)
+        self.inp_class.grid(row=3, column=1)
+        self.target_panel.grid(row=4, column=1)
+
+        self.save_foreground_button.grid(row=5, column=1, ipadx=40)
+        self.save_background_button.grid(row=5, column=0, ipadx=40)
+        self.next_img_button.grid(row=5, column=2, ipadx=40)
+
+        # 启动一个新的线程来执行前景检测，避免阻塞GUI主线程
+        import threading
+
+        self.detection_thread = threading.Thread(target=self.foreground_detection)
+        self.detection_thread.daemon = True  # 设置为守护线程，主程序退出时自动结束
+        self.detection_thread.start()
+        # self.foreground_detection()
+
+    def close(self):
+        self.detect_flag = False
+        self.is_first_frame = True
+        self.root.destroy()
+        if self.window_flag_bit is not None:
+            self.window_flag_bit.value = self.window_flag_bit.value ^ (1 << 2)
+        # 关闭所有OpenCV imgShow窗口
+        cv2.destroyAllWindows()
+
+    def save_background_img(self):
+        self.save_background_flag = True
+
+    def save_foreground_img(self):
+        self.save_foreground_flag = True
+
+    def next_img(self):
+        self.next_img_flag = True
+
+    def remove_background(self, input_img):
+        return remove(data=input_img, session=self.session)
+
+    def open_camera(self, dev):
+        # self.capture = cv2.VideoCapture(dev, cv2.CAP_DSHOW)  # 0为电脑内置摄像头
+        self.capture = cv2.VideoCapture(dev)  # for mac
+        # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)  # 设置分辨率
+        # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+        self.capture.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # 设置自动对焦
+        while self.detect_flag:
+            ret, img = self.get_video_frame()
+            if not ret:
+                LOG.error("摄像头无数据")
+                continue
+            else:
+                tk_show_img_opencv_only(
+                    self.camera_panel, img, suffix=" Origin", update_panel=True
+                )
+                return
+
+    def get_video_frame(self):
+        ret, frame = (
+            self.capture.read()
+        )  # 摄像头读取,ret为是否成功打开摄像头,true,false。 frame为视频的每一帧图像
+        return ret, frame
+
+    def foreground_detection(self):
+        focus_finder = FocusFinder()
+        while self.detect_flag:
+            ret, cur_img = self.get_video_frame()
+            if not ret:
+                LOG.error("摄像头无数据")
+                continue
+
+            # 放入队列，在主线程中处理
+            # tk_show_img_opencv_only(self.camera_panel, cur_img, suffix=" Origin")
+            cv_operation_queue.put(
+                lambda: tk_show_img_opencv_only(
+                    self.camera_panel, cur_img, suffix=" Origin"
+                )
+            )
+
+            focus_image, res = focus_finder.find_focus(cur_img)
+            if res:
+                # if self.is_first_frame:  # 第一次获取到焦点图像时，记录其大小
+                #     self.is_first_frame = False
+                #     height, width = focus_image.shape[:2]
+                # else:
+                #     focus_image = cv2.resize(focus_image, (width, height))
+                # 放入队列，在主线程中处理
+                cv_operation_queue.put(
+                    lambda: tk_show_img_opencv_only(
+                        self.camera_panel, focus_image, suffix="Focus"
+                    )
+                )
+                while (
+                    self.next_img_flag == False
+                    and self.save_background_flag == False
+                    and self.save_foreground_flag == False
+                ):
+                    # 等待用户选择
+                    LOG.info("请选择保存背景、前景或继续")
+                    time.sleep(1)
+
+                if self.next_img_flag == True:
+                    self.next_img_flag = False
+                    continue
+
+                # 点击保存按钮时，才保存背景或前景图像
+                if self.save_background_flag == True:
+                    self.save_background_flag = False
+                    name = BACKGROUND_INPUT_PATH + str(time.time()) + ".png"
+                    cv2.imwrite(name, focus_image)
+                    messagebox.showinfo("提示", "背景创建成功", parent=self.root)
+                elif self.save_foreground_flag == True:
+                    self.save_foreground_flag = False
+                    if not self.inp_name.get() or not self.inp_class.get():
+                        messagebox.showerror(
+                            "错误", "未输入物体名字或种类", parent=self.root
+                        )
+                        continue
+                    try:
+                        inp_class = int(self.inp_class.get())
+                    except:
+                        messagebox.showerror("错误", "种类必须是数字", parent=self.root)
+                        continue
+                    output = self.remove_background(focus_image)  # 扣除背景
+                    cv_operation_queue.put(
+                        lambda: tk_show_img_opencv_only(
+                            self.target_panel, output, suffix="target1"
+                        )
+                    )
+                    output = crop_image(output)  # 扣除背景后，裁剪物体图像
+                    if output.shape[0] > 20 and output.shape[1] > 20:
+                        messagebox.showinfo(
+                            "提示",
+                            str(self.inp_name.get())
+                            + "已成功生成，序号为："
+                            + str(inp_class),
+                            parent=self.root,
+                        )
+                        LOG.debug(f"物体抠取成功，文件名 : {self.inp_name.get()}")
+                        p_name = (
+                            FOREGROUND_INPUT_PATH
+                            + str(self.inp_name.get())
+                            + "-"
+                            + str(inp_class)
+                            + "-"
+                            + str(time.time())
+                            + ".png"
+                        )
+                        cv2.imwrite(p_name, output)
+                        # 放入队列，在主线程中处理
+                        cv_operation_queue.put(
+                            lambda: tk_show_img_opencv_only(
+                                self.target_panel, output, suffix="target2"
+                            )
+                        )
+            time.sleep(0.2)
+
+
+if __name__ == "__main__":
+    root = tkinter.Tk()
+    GeneraterWindow(root)
+    root.mainloop()

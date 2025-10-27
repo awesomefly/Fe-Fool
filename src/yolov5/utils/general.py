@@ -700,7 +700,7 @@ def labels_to_class_weights(labels, nc=80):
     weights[weights == 0] = 1  # replace empty bins with 1
     weights = 1 / weights  # number of targets per class
     weights /= weights.sum()  # normalize
-    return torch.from_numpy(weights)
+    return torch.from_numpy(weights).float()
 
 
 def labels_to_image_weights(labels, nc=80, class_weights=np.ones(80)):
@@ -956,7 +956,7 @@ def non_max_suppression(
     # min_wh = 2  # (pixels) minimum box width and height
     max_wh = 7680  # (pixels) maximum box width and height
     max_nms = 30000  # maximum number of boxes into torchvision.ops.nms()
-    time_limit = 0.030 * bs  # seconds to quit after
+    time_limit = 0.500 * bs  # seconds to quit after
     redundant = True  # require redundant detections
     multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
     merge = False  # use merge-NMS
@@ -1028,7 +1028,9 @@ def non_max_suppression(
 
         output[xi] = x[i]
         if (time.time() - t) > time_limit:
-            LOGGER.warning(f"WARNING: NMS time limit {time_limit:.3f}s exceeded")
+            LOGGER.warning(
+                f"WARNING: NMS time limit {time_limit:.3f}s exceeded. idx: {xi}"
+            )
             break  # time limit exceeded
 
     return output

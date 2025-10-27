@@ -11,6 +11,7 @@ import os
 import random
 import shutil
 import time
+import platform
 from itertools import repeat
 from multiprocessing.pool import Pool, ThreadPool
 from pathlib import Path
@@ -185,6 +186,8 @@ def create_dataloader(
     loader = (
         DataLoader if image_weights else InfiniteDataLoader
     )  # only DataLoader allows for attribute updates
+
+    pin_memory = False if platform.system() == "Darwin" else True
     return (
         loader(
             dataset,
@@ -192,7 +195,7 @@ def create_dataloader(
             shuffle=shuffle and sampler is None,
             num_workers=nw,
             sampler=sampler,
-            pin_memory=True,
+            pin_memory=pin_memory,
             collate_fn=(
                 LoadImagesAndLabels.collate_fn4
                 if quad
@@ -220,6 +223,11 @@ class InfiniteDataLoader(dataloader.DataLoader):
     def __iter__(self):
         for i in range(len(self)):
             yield next(self.iterator)
+
+    def __del__(self):
+        # 显式清理资源
+        if hasattr(self, "iterator"):
+            del self.iterator
 
 
 class _RepeatSampler:

@@ -1,8 +1,11 @@
 import sys
 import warnings
 
+_version_warning_shown = False
 if not (sys.version_info.major == 3 and sys.version_info.minor == 9):
-    warnings.warn("This library is only for Python 3.9", RuntimeWarning)
+    if not _version_warning_shown:
+        _version_warning_shown = True
+        warnings.warn("This library is only for Python 3.9", RuntimeWarning)
 
 from . import _version
 

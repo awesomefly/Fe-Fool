@@ -3,10 +3,11 @@ from tkinter import Tk, Button, Toplevel
 from multiprocessing import Value, freeze_support, Process
 import threading, traceback
 
-from robot.window_robot import RobotSerialPortWindow
-from robot.window_detection import DetecterWindow
-from robot.window_generate import GeneraterWindow
-from robot.window_train import TrainModelWindow
+from windows.window_robot import RobotSerialPortWindow
+from windows.window_detection import DetecterWindow
+from windows.window_generate import GeneraterWindow
+from windows.window_train import TrainModelWindow
+from windows.window_yolo import YoloDataWindow
 
 
 class MainWindow:
@@ -100,8 +101,6 @@ class MainWindow:
 
     def yolodata_run(self):
         root = Toplevel(self.root)
-        from robot.window_yolo import YoloDataWindow
-
         YoloDataWindow(root, self.window_flag_bit)
 
     def button_train(self):
