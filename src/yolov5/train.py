@@ -633,33 +633,33 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         for f in last, best:
             if f.exists():
                 strip_optimizer(f)  # strip optimizers
-                if f is best:
-                    LOGGER.info(f"\nValidating {f}...")
-                    results, _, _ = val.run(
-                        data_dict,
-                        batch_size=batch_size // WORLD_SIZE * 2,
-                        imgsz=imgsz,
-                        model=attempt_load(f, device).half(),
-                        iou_thres=(
-                            0.65 if is_coco else 0.60
-                        ),  # best pycocotools results at 0.65
-                        single_cls=single_cls,
-                        dataloader=val_loader,
-                        save_dir=save_dir,
-                        save_json=is_coco,
-                        verbose=True,
-                        plots=True,
-                        callbacks=callbacks,
-                        compute_loss=compute_loss,
-                    )  # val best model with plots
-                    if is_coco:
-                        callbacks.run(
-                            "on_fit_epoch_end",
-                            list(mloss) + list(results) + lr,
-                            epoch,
-                            best_fitness,
-                            fi,
-                        )
+        if best.exists():
+            LOGGER.info(f"\nValidating {best}...")
+            results, _, _ = val.run(
+                data_dict,
+                batch_size=2,
+                imgsz=imgsz,
+                model=attempt_load(best, device).half(),
+                iou_thres=(
+                    0.65 if is_coco else 0.60
+                ),  # best pycocotools results at 0.65
+                single_cls=single_cls,
+                dataloader=val_loader,
+                save_dir=save_dir,
+                save_json=is_coco,
+                verbose=True,
+                plots=True,
+                callbacks=callbacks,
+                compute_loss=compute_loss,
+            )  # val best model with plots
+            if is_coco:
+                callbacks.run(
+                    "on_fit_epoch_end",
+                    list(mloss) + list(results) + lr,
+                    epoch,
+                    best_fitness,
+                    fi,
+                )
 
         callbacks.run("on_train_end", last, best, plots, epoch, results)
         LOGGER.info(f"Results saved to {colorstr('bold', save_dir)}")
@@ -681,6 +681,60 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             parent=opt.root,
         )
     return results
+
+
+def evaluate(f: Path):
+    data_dict = None
+    data = ROOT / "data/self_data.yaml"
+    with torch_distributed_zero_first(LOCAL_RANK):
+        data_dict = data_dict or check_dataset(data)  # check if None
+    train_path, val_path = data_dict["train"], data_dict["val"]
+    nc = int(data_dict["nc"])  # number of classes
+    names = data_dict["names"]  # class names
+    assert (
+        len(names) == nc
+    ), f"{len(names)} names found for nc={nc} dataset in {data}"  # check
+    is_coco = isinstance(val_path, str) and val_path.endswith(
+        "coco/val2017.txt"
+    )  # COCO dataset
+
+    hyp = ROOT / "data/hyps/hyp.scratch-low.yaml"
+    if isinstance(hyp, str):
+        with open(hyp, errors="ignore") as f:
+            hyp = yaml.safe_load(f)  # load hyps dict
+
+    imgsz = 640
+    batch_size = 2
+    val_loader = create_dataloader(
+        val_path,
+        imgsz,
+        batch_size // WORLD_SIZE * 2,
+        32,
+        False,
+        hyp=hyp,
+        cache="ram",
+        rect=True,
+        rank=-1,
+        workers=8 * 2,
+        pad=0.5,
+        prefix=colorstr("val: "),
+    )[0]
+
+    if f.exists():
+        LOGGER.info(f"\nValidating {f}...")
+        _, _, _ = val.run(
+            data_dict,
+            batch_size=2,
+            imgsz=imgsz,
+            model=attempt_load(f, torch.device("mps")).half(),
+            iou_thres=(0.65 if is_coco else 0.60),  # best pycocotools results at 0.65
+            dataloader=val_loader,
+            save_dir=f.parent.parent,
+            save_json=is_coco,
+            verbose=True,
+            plots=True,
+            compute_loss=None,
+        )  # val best model with plots
 
 
 def parse_opt(known=False):
@@ -867,9 +921,11 @@ def main(opt, callbacks=Callbacks()):
             opt.resume if isinstance(opt.resume, str) else get_latest_run()
         )  # specified or most recent path
         assert os.path.isfile(ckpt), "ERROR: --resume checkpoint does not exist"
-        with open(Path(ckpt).parent.parent / "opt.yaml", errors="ignore") as f:
-            opt = argparse.Namespace(**yaml.safe_load(f))  # replace
+        # with open(Path(ckpt).parent.parent / "opt.yaml", errors="ignore") as f:
+        #     opt = argparse.Namespace(**yaml.safe_load(f))  # replace
         opt.cfg, opt.weights, opt.resume = "", ckpt, True  # reinstate
+        opt.save_dir = str(Path(ckpt).parent.parent)  # save_dir
+        opt.data, opt.hyp = check_file(opt.data), check_yaml(opt.hyp)  # checks
         LOGGER.info(f"Resuming training from {ckpt}")
     else:
         opt.data, opt.cfg, opt.hyp, opt.weights, opt.project = (
@@ -1050,8 +1106,21 @@ def run(**kwargs):
 
 
 if __name__ == "__main__":
-    run(
-        weights="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train",
-        epochs=30,
-        device="mps",
+    # run(
+    #     weights="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train",
+    #     epochs=30,
+    #     device="mps",
+    #     resume="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/last.pt",
+    # )
+
+    # strip_optimizer(
+    #     f="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/best.pt"
+    # )
+    # strip_optimizer(
+    #     f="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/last.pt"
+    # )
+    evaluate(
+        f=Path(
+            "/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/last.pt"
+        )
     )

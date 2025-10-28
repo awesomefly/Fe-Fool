@@ -224,11 +224,6 @@ class InfiniteDataLoader(dataloader.DataLoader):
         for i in range(len(self)):
             yield next(self.iterator)
 
-    def __del__(self):
-        # 显式清理资源
-        if hasattr(self, "iterator"):
-            del self.iterator
-
 
 class _RepeatSampler:
     """Sampler that repeats forever
