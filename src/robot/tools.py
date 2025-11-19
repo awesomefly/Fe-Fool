@@ -89,6 +89,9 @@ def coordinate_mapping(
 def plane_coordinate_transform(
     coordinate_x, coordinate_y, transform_x, transform_y, transform_angle
 ):
+    # 点旋转矩阵
+    # 首先将点绕原点旋转 transform_angle 角度，transform_angle 为正值时，实现的是逆时针旋转
+    # 然后将点在 x 方向平移 transform_x，在 y 方向平移 transform_y
     transform_matrix = [
         [cos(transform_angle), -sin(transform_angle), transform_x],
         [sin(transform_angle), cos(transform_angle), transform_y],
@@ -98,8 +101,26 @@ def plane_coordinate_transform(
     input_coordinate = np.array([coordinate_x, coordinate_y, 1])
     transform_matrix = np.array(transform_matrix)
 
+    # x' = x * cos(θ) - y * sin(θ) + transform_x
+    # y' = x * sin(θ) + y * cos(θ) + transform_y
     output_coordinate = np.dot(transform_matrix, input_coordinate.T)
     return output_coordinate[0], output_coordinate[1]
+
+
+def plane_coordinate_transform2(coordinate_x, coordinate_y, translate_x, translate_y):
+    """
+    原始坐标系(x轴朝左、y轴朝上),变化后坐标系(x轴朝上、y轴朝左)
+    实现 x、y 坐标轴对换后, 上移translate_x, 再右移translate_y
+
+    Returns:
+        tuple: 变换后的 (x', y') 坐标
+    """
+
+    # y - A (变化后x轴朝上，上移translate_x相当于减translate_x)
+    new_x = coordinate_y - translate_x
+    new_y = coordinate_x + translate_y  # x + B
+
+    return new_x, new_y
 
 
 # 播放音频的模块会抛出异常,是由于windows不支持utf-16编码，需修改playsound源码
@@ -116,7 +137,8 @@ def play_sound(*args):
         for filename in os.listdir(SOUND_PATH):
             if filename.startswith(str_sound):
                 path_list.append(SOUND_PATH + filename)
-        playsound(choice(path_list))
+        # todo: macos不支持
+        # playsound(choice(path_list))
 
 
 def get_name_by_class(_class):

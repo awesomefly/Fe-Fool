@@ -2,6 +2,9 @@ import cv2
 import sys
 import time
 from windows.image_find_focus import FocusFinder
+from yolov5.detect_self import YoloDetecter
+from windows.window_detection import DEFAULT_MODEL_PATH, yolo_to_pixel
+from robot import robot_master, LOG, ROOT
 
 
 def diagnose_camera_issues():
@@ -205,24 +208,122 @@ def variance_of_laplacian(camera_index=0):
 
 def find_focus(camera_index=0):
     cap = cv2.VideoCapture(camera_index)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     focus_finder = FocusFinder()
+    self_yolo = YoloDetecter(weights=DEFAULT_MODEL_PATH, device="cpu")
     while True:
         ret, frame = cap.read()
         if not ret:
             print("Failed to read frame")
             return
         cv2.imshow("Camera", frame)
-        focus_image, res = focus_finder.find_focus(frame)
+        # focus_image, res = focus_finder.find_focus(frame)
+        focus_image, res = focus_finder.find_chesspiece(frame)
         if res:
             cv2.imshow("Camera Focus", focus_image)
+            # focus_image = cv2.resize(focus_image, (640, 640))
+
+            # res_img, yolo_list = self_yolo.detect(focus_image)
+            # cv2.imshow("Yolo Detect", res_img)
         key = cv2.waitKey(1000) & 0xFF
         if key == 27 or key == ord("q"):  # 按Esc或q退出
             break
     cap.release()
     cv2.destroyAllWindows()
+
+
+def find_chessboard():
+    cap = cv2.VideoCapture(0)
+    focus_finder = FocusFinder()
+    while True:
+        # frame = cv2.imread("/Users/bytedance/Downloads/IMG_5631.png")
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to read frame")
+            return
+        cv2.imshow("Camera", frame)
+        chessboard_image, res = focus_finder.find_chessboard(frame)
+        if chessboard_image is not None:
+            cv2.imshow("Chessboard", chessboard_image)
+        key = cv2.waitKey(1000) & 0xFF
+        if key == 27 or key == ord("q"):  # 按Esc或q退出
+            break
+
+
+def detect():
+    cap = cv2.VideoCapture(0)
+    self_yolo = YoloDetecter(weights=DEFAULT_MODEL_PATH, device="cpu")
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to read frame")
+            return
+        cv2.imshow("Camera", frame)
+        res_img, yolo_list = self_yolo.detect(frame)
+        if res_img is not None:
+            cv2.imshow("Detect", res_img)
+        key = cv2.waitKey(1000) & 0xFF
+        if key == 27 or key == ord("q"):  # 按Esc或q退出
+            break
+
+
+def detect_and_play():
+    imgs = [
+        "/Users/bytedance/Downloads/IMG_5664.png",
+        "/Users/bytedance/Downloads/IMG_5665.png",
+    ]
+    focus_finder = FocusFinder()
+    self_yolo = YoloDetecter(weights=DEFAULT_MODEL_PATH, device="cpu")
+    master = robot_master.ChessRobotMaster(think_depth=1)  # 象棋
+    for img in imgs:
+        # start_time = time.time()
+        cur_img = cv2.imread(img)
+        if cur_img is None:
+            continue
+
+        # 取最大轮廓，即棋盘
+        focus_image, has_res = focus_finder.find_chessboard(cur_img)
+        if has_res:
+            cv2.imshow("Chessboard", focus_image)
+            key = cv2.waitKey(100000) & 0xFF
+            if key == 27 or key == ord("q"):  # 按Esc或q退出
+                break
+
+            res_img, yolo_list = self_yolo.detect(focus_image)
+            # 将YOLO输出的归一化坐标转换为像素坐标
+            pixel_list = yolo_to_pixel(yolo_list, res_img.shape[0], res_img.shape[1])
+
+            # 按类型排序，如果相邻两帧的检测结果相同，则认为是可信的
+            pixel_list.sort(key=lambda x: x[2], reverse=False)
+            # print(f"pixel_list:{pixel_list},{res_img.shape}")
+
+            master.receive_message(
+                topic="yolo_res", message=(pixel_list, res_img.shape)
+            )
+
+
+def play():
+    master = robot_master.ChessRobotMaster(think_depth=1)  # 象棋
+
+    shape1 = (2341, 2824, 3)
+    pixel_list1 = [
+        [1145.216562718153, 1810.689398765564, 8],
+        [1170.0855128467083, 2594.7987484931946, 6],
+        [1145.216562718153, 145.96496734023094, 13],
+        [1126.5647803544998, 973.5019211769104, 15],
+    ]
+    shape2 = (2351, 2826, 3)
+    pixel_list2 = [
+        [1148.0466795265675, 1804.2644913196564, 8],
+        [1176.7478622794151, 2589.1978254318237, 6],
+        [1136.3998714983463, 149.0531681254506, 13],
+        [1158.0297178924084, 1250.561020374298, 15],
+    ]
+
+    master.receive_message(topic="yolo_res", message=(pixel_list1, shape1))
+    master.receive_message(topic="yolo_res", message=(pixel_list2, shape2))
 
 
 if __name__ == "__main__":
@@ -232,3 +333,7 @@ if __name__ == "__main__":
     # test_camera_auto_focus()
     # variance_of_laplacian()
     find_focus()
+    # find_chessboard()
+    # detect_and_play()
+    # play()
+    # detect()

@@ -9,6 +9,8 @@ import serial.tools.list_ports
 import threading
 import tkinter as tk
 from tkinter import ttk
+import re
+
 import time
 import socket
 import numpy as np
@@ -21,23 +23,23 @@ from robot import SERVER_ADDR, ROOT, LOG
 ROBOT_PARAMS = ROOT + "/robot_params.yaml"
 
 PER_ANGLE_TIME = 15  # 机械臂运行速度：舵机转动一度需要的时间，ms
-INIT_ENGINE = 1500
+INIT_ENGINE = 120
 ENGINE_NUM = 3
+
+TOOL_LENGTH = 69  # 工具长度，洗泵延长距离为 69mm
+INIT_ENGINE_Y = INIT_ENGINE + TOOL_LENGTH  # 初始引擎Y轴位置
 
 POINT_NUM = 9  # 设置校准点位数量
 NINE_POINT = [
-    [-100, 83, 86],
-    [0, 83, 86],
-    [100, 83, 86],
-    [100, 120, 86],
-    [0, 120, 86],
-    [-100, 120, 86],
-    [-100, 198, 86],
-    [0, 198, 86],
-    [100, 198, 86],
-    # [100, 300, 100],
-    # [0, 300, 100],
-    # [-100, 300, 100],
+    [-100, 149, 30],
+    [0, 149, 30],
+    [100, 149, 30],
+    [100, 199, 30],
+    [0, 199, 30],
+    [-100, 199, 30],
+    [-100, 224, 30],
+    [0, 224, 30],
+    [100, 224, 30],
 ]
 
 
@@ -61,7 +63,7 @@ class RobotSerialPortWindow:
         self.load_fit()
 
         self.last_angle_list = [0.0, 0.0, 0.0]
-        self.last_engine_list = [INIT_ENGINE, INIT_ENGINE, INIT_ENGINE]
+        self.last_engine_list = [0, INIT_ENGINE_Y, INIT_ENGINE]
         self.per_angle_time = PER_ANGLE_TIME  # 舵机转动一度需要的时间，ms
 
         self.window_flag_bit = window_flag_bit
@@ -69,7 +71,7 @@ class RobotSerialPortWindow:
 
     def window(self):
         self.root = tk.Tk()
-        self.root.title("机械臂运动控制器 V0.0.1")
+        self.root.title("机械臂控制器(上位机)")
         self.root.geometry("960x640")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -132,6 +134,10 @@ class RobotSerialPortWindow:
         # text
         self.sendtext = tk.Text(
             operatetextframe, height=15, width=99, bg="white", fg="black"
+        )
+        self.sendtext.insert(
+            tk.END,
+            "在此输入你想发送的指令 回车结尾。例如: G0 X100 Y100 Z100 F50 回车 ,注:坐标值不会被纠偏",
         )
         self.sendscrollbar = tk.Scrollbar(operatetextframe)
         self.sendtext["yscrollcommand"] = self.sendscrollbar.set
@@ -295,36 +301,36 @@ class RobotSerialPortWindow:
         spacelabel.pack()
         self.sendbutton = tk.Button(
             optionframebottom,
-            text="发送坐标",
+            text="发送指令",
             width=20,
             height=1,
             command=self.sendbuttoncmd,
         )
         self.sendbutton.pack()
 
-        # suck botton
-        spacelabel = tk.Label(optionframebottom, width=5, height=1)
-        spacelabel.pack()
-        self.suckupbutton = tk.Button(
-            optionframebottom,
-            text="打开吸泵",
-            width=20,
-            height=1,
-            command=self.suckup,
-        )
-        self.suckupbutton.pack()
+        # # suck botton
+        # spacelabel = tk.Label(optionframebottom, width=5, height=1)
+        # spacelabel.pack()
+        # self.suckupbutton = tk.Button(
+        #     optionframebottom,
+        #     text="打开吸泵",
+        #     width=20,
+        #     height=1,
+        #     command=self.suckup,
+        # )
+        # self.suckupbutton.pack()
 
-        # suck down
-        spacelabel = tk.Label(optionframebottom, width=5, height=1)
-        spacelabel.pack()
-        self.suckdownbutton = tk.Button(
-            optionframebottom,
-            text="关闭吸泵",
-            width=20,
-            height=1,
-            command=self.suckdown,
-        )
-        self.suckdownbutton.pack()
+        # # suck down
+        # spacelabel = tk.Label(optionframebottom, width=5, height=1)
+        # spacelabel.pack()
+        # self.suckdownbutton = tk.Button(
+        #     optionframebottom,
+        #     text="关闭吸泵",
+        #     width=20,
+        #     height=1,
+        #     command=self.suckdown,
+        # )
+        # self.suckdownbutton.pack()
 
         # remote
         spacelabel = tk.Label(optionframebottom, width=5, height=1)
@@ -344,7 +350,7 @@ class RobotSerialPortWindow:
         spacelabel.pack()
         self.runbutton = tk.Button(
             optionframebottom,
-            text="开始下棋",
+            text="开启指令监听",
             width=20,
             height=1,
             command=self.runbuttoncmd,
@@ -375,84 +381,120 @@ class RobotSerialPortWindow:
                 )
                 return
 
-            self.calcparambutton["text"] = "结束计算"
+            self.calcparambutton["text"] = "停止校准"
             self.paramwindow = tk.Toplevel(self.face)
-            self.paramwindow.title("机械臂内参计算")
+            self.paramwindow.title("机械臂内参校准")
             self.paramwindow.geometry("400x600")
             self.paramwindow.protocol("WM_DELETE_WINDOW", self.close_paramwindow)
 
             self.point_count = 0
 
             zerobutton = tk.Button(
-                self.paramwindow, text="回到原点位置", command=self.zerobuttoncmd
+                self.paramwindow, text="回到原点(0,189,120)", command=self.zerobuttoncmd
             )
-            zerobutton.grid(row=0, column=0, padx=20, pady=20, sticky=("e", "w"))
+            zerobutton.grid(row=0, column=1, padx=20, pady=20, sticky=("e", "w"))
 
             initposbutton = tk.Button(
-                self.paramwindow, text="回到初始位置", command=self.initposbuttoncmd
+                self.paramwindow, text="原点查找", command=self.initposbuttoncmd
             )
-            initposbutton.grid(row=0, column=1, padx=20, pady=20, sticky=("e", "w"))
+            initposbutton.grid(row=0, column=0, padx=20, pady=20, sticky=("e", "w"))
 
             curposbutton = tk.Button(
                 self.paramwindow, text="获取当前位置坐标", command=self.curposbuttoncmd
             )
             curposbutton.grid(row=0, column=2, padx=20, pady=20, sticky=("e", "w"))
 
-            targetbutton = tk.Button(
-                self.paramwindow, text="开始点位校准", command=self.do_first_point
+            suckupbutton = tk.Button(
+                self.paramwindow, text="打开吸泵/继电器", command=self.suckup
             )
-            targetbutton.grid(row=1, column=1, padx=20, pady=20, sticky=("e", "w"))
+            suckupbutton.grid(row=0, column=4, padx=20, pady=20, sticky=("e", "w"))
+            suckdownbutton = tk.Button(
+                self.paramwindow, text="关闭吸泵/继电器", command=self.suckdown
+            )
+            suckdownbutton.grid(row=0, column=5, padx=20, pady=20, sticky=("e", "w"))
+
+            gripperonbutton = tk.Button(
+                self.paramwindow, text="打开夹子/舵机", command=self.gripperon
+            )
+            gripperonbutton.grid(row=1, column=4, padx=20, pady=20, sticky=("e", "w"))
+            gripperoffbutton = tk.Button(
+                self.paramwindow, text="关闭夹子/舵机", command=self.gripperoff
+            )
+            gripperoffbutton.grid(row=1, column=5, padx=20, pady=20, sticky=("e", "w"))
+
+            DConbutton = tk.Button(
+                self.paramwindow, text="打开12V直流输出", command=self.DCon
+            )
+            DConbutton.grid(row=2, column=4, padx=20, pady=20, sticky=("e", "w"))
+            DCoffbutton = tk.Button(
+                self.paramwindow, text="关闭12V直流输出", command=self.DCoff
+            )
+            DCoffbutton.grid(row=2, column=5, padx=20, pady=20, sticky=("e", "w"))
+
+            steplabel = tk.Label(self.paramwindow, text="步长:")
+            steplabel.grid(row=1, column=0, padx=20, pady=20, sticky=("e", "w"))
+            stepinp = tk.Entry(self.paramwindow)
+            stepinp.insert(0, "5")
+            stepinp.grid(row=1, column=1, padx=20, pady=20, sticky=("e", "w"))
+            self.stepinp = stepinp
 
             reducebutton0 = tk.Button(
-                self.paramwindow, text="0轴减5", command=self.reducebutton0cmd
+                self.paramwindow, text="X-", command=self.reducebutton0cmd
             )
             reducebutton0.grid(row=2, column=0, padx=20, pady=20, sticky=("e", "w"))
 
             addbutton0 = tk.Button(
-                self.paramwindow, text="0轴加5", command=self.addbutton0cmd
+                self.paramwindow, text="X+", command=self.addbutton0cmd
             )
             addbutton0.grid(row=2, column=2, padx=20, pady=20, sticky=("e", "w"))
 
             reducebutton1 = tk.Button(
-                self.paramwindow, text="1轴减5", command=self.reducebutton1cmd
+                self.paramwindow, text="Y-", command=self.reducebutton1cmd
             )
             reducebutton1.grid(row=3, column=0, padx=20, pady=20, sticky=("e", "w"))
 
             addbutton1 = tk.Button(
-                self.paramwindow, text="1轴加5", command=self.addbutton1cmd
+                self.paramwindow, text="Y+", command=self.addbutton1cmd
             )
             addbutton1.grid(row=3, column=2, padx=20, pady=20, sticky=("e", "w"))
 
             reducebutton2 = tk.Button(
-                self.paramwindow, text="2轴减5", command=self.reducebutton2cmd
+                self.paramwindow, text="Z-", command=self.reducebutton2cmd
             )
             reducebutton2.grid(row=4, column=0, padx=20, pady=20, sticky=("e", "w"))
 
             addbutton2 = tk.Button(
-                self.paramwindow, text="2轴加5", command=self.addbutton2cmd
+                self.paramwindow, text="Z+", command=self.addbutton2cmd
             )
             addbutton2.grid(row=4, column=2, padx=20, pady=20, sticky=("e", "w"))
+
+            targetbutton = tk.Button(
+                self.paramwindow, text="开始点位校准", command=self.do_first_point
+            )
+            targetbutton.grid(row=5, column=0, padx=20, pady=20, sticky=("e", "w"))
 
             addparabutton = tk.Button(
                 self.paramwindow, text="确定该点已校准", command=self.addparabuttoncmd
             )
-            addparabutton.grid(
-                row=5, column=1, ipadx=10, ipady=5, padx=20, pady=20, sticky=("e", "w")
-            )
-
-            testninebutton = tk.Button(
-                self.paramwindow, text="点位移动测试", command=self.testninebuttoncmd
-            )
-            testninebutton.grid(
-                row=6, column=1, ipadx=10, ipady=5, padx=20, pady=20, sticky=("e", "w")
-            )
+            addparabutton.grid(row=5, column=1, padx=20, pady=20, sticky=("e", "w"))
 
             calcbutton = tk.Button(
                 self.paramwindow, text="停止校准", command=self.stop_calc
             )
-            calcbutton.grid(
-                row=7, column=1, ipadx=10, ipady=5, padx=20, pady=20, sticky=("e", "w")
+            calcbutton.grid(row=5, column=2, padx=20, pady=20, sticky=("e", "w"))
+
+            testninebutton = tk.Button(
+                self.paramwindow,
+                text="点位移动测试(校准)",
+                command=self.testninebuttoncmd,
             )
+            testninebutton.grid(row=6, column=1, padx=20, pady=20, sticky=("e", "w"))
+            testninebutton2 = tk.Button(
+                self.paramwindow,
+                text="点位移动测试(未校准)",
+                command=self.testninebuttoncmd2,
+            )
+            testninebutton2.grid(row=6, column=0, padx=20, pady=20, sticky=("e", "w"))
 
             self.len_params = []
 
@@ -477,25 +519,42 @@ class RobotSerialPortWindow:
 
     def testninebuttoncmd(self):
         if self.connecting:
-            self.stop_calc()
-            self.do_first_point(correct=True)
-            time.sleep(2)
-            for i in range(POINT_NUM - 1):
-                self.do_next_point(correct=True)
-                time.sleep(2)
-            self.restoration()
+            for i in range(POINT_NUM):
+                offset = NINE_POINT[i]
+                self.robotrun(offset, need_fit=True)
+                time.sleep(5)
+
+            # self.stop_calc()
+            # self.do_first_point(need_fit=True)
+            # time.sleep(2)
+            # for i in range(POINT_NUM - 1):
+            #     self.do_next_point(need_fit=True)
+            #     time.sleep(2)
+            # self.restoration()
         else:
             tk.messagebox.showerror(
                 title="无法发送", message="机械臂已经断开连接", parent=self.paramwindow
             )
         pass
 
-    def do_first_point(self, correct=False):
+    def testninebuttoncmd2(self):
+        if self.connecting:
+            for i in range(POINT_NUM):
+                offset = NINE_POINT[i]
+                self.robotrun(offset, need_fit=False)
+                time.sleep(5)
+        else:
+            tk.messagebox.showerror(
+                title="无法发送", message="机械臂已经断开连接", parent=self.paramwindow
+            )
+        pass
+
+    def do_first_point(self, need_fit=False):
         self.stop_calc()
         if self.connecting:
             self.point_count = 0
             offset = NINE_POINT[self.point_count]
-            self.robotrun(offset, correct=correct)
+            self.robotrun(offset, need_fit=need_fit)
             for i in range(ENGINE_NUM):
                 self.engine_model[i][self.point_count] = self.last_engine_list[i]
         else:
@@ -504,14 +563,14 @@ class RobotSerialPortWindow:
             )
         pass
 
-    def do_next_point(self, correct=False):
+    def do_next_point(self, need_fit=False):
         if self.connecting:
             self.point_count = self.point_count + 1
             # offset = NINE_POINT[self.point_count - 1]
             # self.robotrun([offset[0], offset[1], offset[2] + 30])
             offset = NINE_POINT[self.point_count]
             # self.robotrun([offset[0], offset[1], offset[2] + 30])
-            self.robotrun(offset, correct=correct)
+            self.robotrun(offset, need_fit=need_fit)
             for i in range(ENGINE_NUM):
                 self.engine_model[i][self.point_count] = self.last_engine_list[i]
         else:
@@ -587,7 +646,7 @@ class RobotSerialPortWindow:
             engine0=self.last_engine_list[0],
             engine1=self.last_engine_list[1],
             engine2=self.last_engine_list[2],
-            run_time=0,
+            run_time=50,
         )
         self.rectext.config(state=tk.NORMAL)
         self.rectext.insert(
@@ -598,36 +657,40 @@ class RobotSerialPortWindow:
         self.rectext.update()
 
     def addbutton0cmd(self):
-        self.last_engine_list[0] = self.last_engine_list[0] + 5
+        self.last_engine_list[0] = self.last_engine_list[0] + int(self.stepinp.get())
         self.send_last_send()
 
     def addbutton1cmd(self):
-        self.last_engine_list[1] = self.last_engine_list[1] + 5
+        self.last_engine_list[1] = self.last_engine_list[1] + int(self.stepinp.get())
         self.send_last_send()
 
     def addbutton2cmd(self):
-        self.last_engine_list[2] = self.last_engine_list[2] + 5
+        self.last_engine_list[2] = self.last_engine_list[2] + int(self.stepinp.get())
         self.send_last_send()
 
     def reducebutton0cmd(self):
-        self.last_engine_list[0] = self.last_engine_list[0] - 5
+        self.last_engine_list[0] = self.last_engine_list[0] - int(self.stepinp.get())
         self.send_last_send()
 
     def reducebutton1cmd(self):
-        self.last_engine_list[1] = self.last_engine_list[1] - 5
+        self.last_engine_list[1] = self.last_engine_list[1] - int(self.stepinp.get())
         self.send_last_send()
 
     def reducebutton2cmd(self):
-        self.last_engine_list[2] = self.last_engine_list[2] - 5
+        self.last_engine_list[2] = self.last_engine_list[2] - int(self.stepinp.get())
         self.send_last_send()
 
     def zerobuttoncmd(self):
-        self.last_engine_list = [0, 0, 0]
+        # Y轴含工具延长部分
+        # 先进行原点查找，再动到初始位置（INIT_ENGINE_Y），如果此时机械臂实际未移动，说明已经在原点（意味着此时工具长度已被设置成TOOL_LEN）
+        self.last_engine_list = [0, INIT_ENGINE_Y, INIT_ENGINE]
         self.send_last_send()
 
     def initposbuttoncmd(self):
-        self.last_engine_list = [INIT_ENGINE, INIT_ENGINE, INIT_ENGINE]
-        self.send_last_send()
+        data = "G28\r"
+        self.serial.write(data.encode(self.encoding))
+        self.last_engine_list = [0, INIT_ENGINE_Y, INIT_ENGINE]  # Y轴含工具延长部分
+        # self.send_last_send()
 
     def curposbuttoncmd(self):
         data = "M114\r"
@@ -697,8 +760,12 @@ class RobotSerialPortWindow:
             if self.serial.isOpen():
                 LOG.info(f"device: {self.device} is connected.")
                 self.connecting = True
-                # self.recthread = threading.Thread(target=self.receive)
-                # self.recthread.start()
+                self.recthread = threading.Thread(target=self.receive)
+                self.recthread.start()
+
+                # serialread_thread = threading.Thread(target=self.serialread)
+                # serialread_thread.daemon = True  # 主线程退出时，线程自动结束
+                # serialread_thread.start()
                 return True
             else:
                 return False
@@ -712,6 +779,7 @@ class RobotSerialPortWindow:
         pass
 
     def receive(self):
+        hexdisplay = False
         while self.connecting:
             try:
                 nchar = self.serial.inWaiting()
@@ -722,9 +790,10 @@ class RobotSerialPortWindow:
                 self.openbutton["text"] = "连接机械臂"
                 pass
             if nchar:
-                if self.hexdisplay.get() == False:
+                if hexdisplay == False:
                     data = "".encode("utf-8")
                     data = data + self.serial.read(nchar)
+                    LOG.debug(f"serial read data: {data}, len: {nchar}")
                     try:
                         self.rectext.config(state=tk.NORMAL)
                         self.rectext.insert(tk.END, data.decode(self.encoding))
@@ -737,6 +806,7 @@ class RobotSerialPortWindow:
                     pass
                 else:
                     data = self.serial.read(nchar)
+                    LOG.debug(f"serial read data: {data}, len: {nchar}")
                     convert = "0123456789ABCDEF"
                     string = ""
                     for char in data:
@@ -758,11 +828,11 @@ class RobotSerialPortWindow:
             is_open = self.serialopen()
             if is_open:
                 self.openbutton["text"] = "断开机械臂"
-                # time.sleep(30)
+
+                # time.sleep(3)  # 等待机械臂初始化完成
                 # self.restoration()
-                serialread_thread = threading.Thread(target=self.serialread)
-                serialread_thread.daemon = True  # 主线程退出时，线程自动结束
-                serialread_thread.start()
+                # self.init_params() # 重启后才会生效
+
                 pass
             pass
         else:
@@ -777,7 +847,7 @@ class RobotSerialPortWindow:
         while self.serial.isOpen():
             try:
                 data = self.serial.readall()
-                # LOG.debug(f"serial read data: {data}")
+                LOG.debug(f"serial read data: {data}")
                 if data:
                     data = data.decode(self.encoding)
                     self.rectext.config(state=tk.NORMAL)
@@ -791,7 +861,6 @@ class RobotSerialPortWindow:
             except Exception as e:
                 LOG.error(f"serial read error: {e}")
                 break
-            time.sleep(0.1)
         return
 
     def locatebuttoncmd(self):
@@ -962,7 +1031,7 @@ class RobotSerialPortWindow:
         self.restoration()
 
     def runbuttoncmd(self):
-        if self.runbutton["text"] == "开始下棋":
+        if self.runbutton["text"] == "开启指令监听":
             if not self.serial.isOpen():
                 tk.messagebox.showerror(
                     title="无法抓取", message="请先连接机械臂", parent=self.root
@@ -973,50 +1042,62 @@ class RobotSerialPortWindow:
             t1.setDaemon(True)
             t1.start()
             self.working__flag = True
-            self.runbutton["text"] = "停止下棋"
+            self.runbutton["text"] = "停止指令监听"
         else:
             self.working__flag = False
-            self.runbutton["text"] = "开始下棋"
+            self.runbutton["text"] = "开启指令监听"
             self.restoration()
             self.server.close()
+
+    def parse_gcode(self, gcode_string):
+        """
+        解析G代码字符串中的所有参数
+
+        参数:
+            gcode_string (str): G代码字符串
+
+        返回:
+            dict: 包含所有参数的字典
+        """
+        # 匹配字母后跟数字的模式
+        pattern = r"([A-Z])([-+]?\d*\.?\d+)"
+        matches = re.findall(pattern, gcode_string)
+
+        parameters = {}
+        for param, value in matches:
+            parameters[param] = int(value)
+        print(parameters)
+        return parameters
 
     # 读取界面参数控制机械臂
     def sendbuttoncmd(self):
         if self.connecting:
             data = self.sendtext.get(1.0, tk.END)
-            # if data.startswith(":"):
-            #     data = data.lstrip(":")
-            #     angle = data.split(",")
-            #     try:
-            #         angle_list = list(map(float, angle))
-            #         self.robotrun_angle(angle_list)
-            #     except:
-            #         tk.messagebox.showerror(
-            #             title="无法发送",
-            #             message="输入命令无效或超出约束！",
-            #             parent=self.root,
-            #         )
-            #         return
+            # print(data.encode("utf-8").hex())
 
-            if data.startswith("G") or data.startswith("M"):
-                if not data.endswith("\r"):
-                    data = data + "\r"
-                # data = "G90\rG1 X0 Y205 Z180 F60\r"
-                # data = "G92 X0 Y0 Z0\r"
-                self.serial.write(data.encode(self.encoding))
-                LOG.debug(f"发送给机械臂的命令：{data}")
-            else:
-                offset = data.split(",")
-                try:
-                    offset_list = list(map(float, offset))
-                    self.robotrun(offset_list)
-                except:
+            cmds = data.split("\n")  # 按行分割
+            print(cmds)
+            for cmd in cmds:
+                if cmd.strip() == "":
+                    continue
+                if not cmd.endswith("\r"):
+                    cmd = cmd + "\r"
+                LOG.debug(f"发送给机械臂的命令：{cmd}")
+                if cmd.startswith("M"):
+                    self.serial.write(cmd.encode(self.encoding))
+                elif cmd.startswith("G"):
+                    params = self.parse_gcode(cmd)
+                    if "X" in params and "Y" in params and "Z" in params:
+                        self.robotrun(
+                            [params["X"], params["Y"], params["Z"]], need_fit=False
+                        )
+                else:
                     tk.messagebox.showerror(
                         title="无法发送",
-                        message="输入命令无效或超出约束！",
+                        message="命令格式不正确！",
                         parent=self.root,
                     )
-                    return
+                    pass
         else:
             tk.messagebox.showerror(
                 title="无法发送", message="请先连接机械臂", parent=self.root
@@ -1025,31 +1106,66 @@ class RobotSerialPortWindow:
         pass
 
     ############################ 机械臂控制函数 ##################################
+    # 初始化参数
+    def init_params(self):
+        if not self.serial.isOpen():
+            return
+        data = "M210 S69 \r"  # 重启后才会生效
+        self.serial.write(data.encode(self.encoding))
+
     # 复位
     def restoration(self):
         if not self.serial.isOpen():
             return
 
         # Default ABSOLUTE MODE
-        # data = "G90\r"
-        # self.serial.write(data.encode(self.encoding))
+        data = "G28 \r"
+        self.serial.write(data.encode(self.encoding))
 
-        self.sendmsg()
-        self.last_angle_list = [INIT_ENGINE, INIT_ENGINE, INIT_ENGINE]
+        # self.sendmsg()
+        # self.last_angle_list = [INIT_ENGINE, INIT_ENGINE, INIT_ENGINE]
 
     # 气泵吸
     def suckup(self):
         if not self.serial.isOpen():
             return
-
-        data = "M5\r"
+        data = "M22 \r"
+        # data = "M5\r" #scaral机器人
         self.serial.write(data.encode(self.encoding))
 
     # 气泵放
     def suckdown(self):
         if not self.serial.isOpen():
             return
-        data = "M3\r"
+        data = "M21 \r"
+        # data = "M3\r" #scaral机器人
+        self.serial.write(data.encode(self.encoding))
+
+    #  gripper on
+    def gripperon(self):
+        if not self.serial.isOpen():
+            return
+        data = "M3 \r"
+        self.serial.write(data.encode(self.encoding))
+
+    # gripper off
+    def gripperoff(self):
+        if not self.serial.isOpen():
+            return
+        data = "M5 \r"
+        self.serial.write(data.encode(self.encoding))
+
+    # 12V直流输出
+    def DCon(self):
+        if not self.serial.isOpen():
+            return
+        data = "M31 \r"
+        self.serial.write(data.encode(self.encoding))
+
+    def DCoff(self):
+        if not self.serial.isOpen():
+            return
+        data = "M32 \r"  # 四轴
         self.serial.write(data.encode(self.encoding))
 
     def angle2engine(self, angle, num):
@@ -1059,13 +1175,13 @@ class RobotSerialPortWindow:
             return INIT_ENGINE + int(angle * 7.28)
 
     # 机械臂运动
-    def robotrun(self, offset, t=0, correct=True):
+    def robotrun(self, offset, t=50, need_fit=True):
         # SCARA机械臂的运动逆解是下位机完成的，这里直接发送坐标即可
         engine0 = offset[0]
         engine1 = offset[1]
         engine2 = offset[2]
 
-        if correct:
+        if need_fit:
             # 向量长度
             offset_len = sqrt(offset[0] ** 2 + offset[1] ** 2 + offset[2] ** 2)
             # 坐标纠偏
@@ -1130,7 +1246,7 @@ class RobotSerialPortWindow:
         self.last_angle_list = [angle0, angle1, angle2]
 
     def working(self):
-        self.robotrun([260, 0, 100])  # 随便设定的初始位置，不挡住相机就行
+        self.robotrun([-160, 0, 120])  # 随便设定的初始位置，不挡住相机就行
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # 初始化
         self.server.bind(SERVER_ADDR)  # 绑定ip和端口

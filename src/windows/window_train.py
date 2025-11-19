@@ -55,9 +55,9 @@ class TrainModelWindow:
         path_ = filedialog.askopenfilename(initialdir=MODEL_PATH)
         if path_ == "":
             self.path.get()  # 当打开文件路径选择框后点击"取消" 输入框会清空路径，所以使用get()方法再获取一次路径
-        else:
+        elif os.name == "nt":  # 如果是 Windows 系统:
             path_ = path_.replace("/", "\\")  # 实际在代码中执行的路径为“\“ 所以替换一下
-            self.path.set(path_)
+        self.path.set(path_)
 
     def run(self):
         weights_dir = self.path.get()

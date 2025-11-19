@@ -126,6 +126,9 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     (w.parent if evolve else w).mkdir(parents=True, exist_ok=True)  # make dir
     last, best = w / "last.pt", w / "best.pt"
 
+    # Save run settings
+    write_yaml(opt)
+
     # Hyperparameters
     if isinstance(hyp, str):
         with open(hyp, errors="ignore") as f:
@@ -184,7 +187,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         with torch_distributed_zero_first(LOCAL_RANK):
             weights = attempt_download(weights)  # download if not found locally
         ckpt = torch.load(
-            weights, map_location="cpu"
+            weights, map_location="cpu", weights_only=False
         )  # load checkpoint to CPU to avoid CUDA memory leak
         model = Model(
             cfg or ckpt["model"].yaml, ch=3, nc=nc, anchors=hyp.get("anchors")
@@ -228,7 +231,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
     hyp["weight_decay"] *= batch_size * accumulate / nbs  # scale weight_decay
     LOGGER.info(f"Scaled weight_decay = {hyp['weight_decay']}")
 
-    show_progress(opt.root, opt.progressbar, 5)
+    if hasattr(opt, "root") and opt.root is not None:
+        show_progress(opt.root, opt.progressbar, 5)
 
     g0, g1, g2 = [], [], []  # optimizer parameter groups
     for v in model.modules():
@@ -406,7 +410,8 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
         f"Logging results to {colorstr('bold', save_dir)}\n"
         f"Starting training for {epochs} epochs..."
     )
-    show_progress(opt.root, opt.progressbar, 5)
+    if hasattr(opt, "root") and opt.root is not None:
+        show_progress(opt.root, opt.progressbar, 5)
     for epoch in range(
         start_epoch, epochs
     ):  # epoch ------------------------------------------------------------------
@@ -452,10 +457,10 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
             imgs = (
                 imgs.to(device, non_blocking=True).float() / 255
             )  # uint8 to float32, 0-255 to 0.0-1.0
-
-            show_progress(
-                opt.root, opt.progressbar, 90 / len(pbar) / (epochs - start_epoch)
-            )
+            if hasattr(opt, "root") and opt.root is not None:
+                show_progress(
+                    opt.root, opt.progressbar, 90 / len(pbar) / (epochs - start_epoch)
+                )
             # Warmup
             if ni <= nw:
                 xi = [0, nw]  # x interp
@@ -674,7 +679,7 @@ def train(hyp, opt, device, callbacks):  # hyp is path/to/hyp.yaml or hyp dictio
 
     # 将data.yaml复制到相应的模型目录下
     shutil.copyfile(opt.data, str(save_dir) + os.sep + "data.yaml")
-    if opt.root is not None:
+    if hasattr(opt, "root") and opt.root is not None:
         messagebox.showinfo(
             title="提示",
             message=f"模型已生成，mAP*值为{round(results[3], 3)}。(该值越大越好，一般大于0.8为宜)",
@@ -763,6 +768,7 @@ def parse_opt(known=False):
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument(
         "--batch-size",
+        "--batch_size",
         type=int,
         default=-1,
         help="total batch size for all GPUs, -1 for autobatch",
@@ -805,7 +811,7 @@ def parse_opt(known=False):
         type=str,
         nargs="?",
         const="ram",
-        help='--cache images in "ram" (default) or "disk"',
+        help='--cache images in "ram" or "disk"  (default None) ',
     )
     parser.add_argument(
         "--image-weights",
@@ -921,11 +927,10 @@ def main(opt, callbacks=Callbacks()):
             opt.resume if isinstance(opt.resume, str) else get_latest_run()
         )  # specified or most recent path
         assert os.path.isfile(ckpt), "ERROR: --resume checkpoint does not exist"
-        # with open(Path(ckpt).parent.parent / "opt.yaml", errors="ignore") as f:
-        #     opt = argparse.Namespace(**yaml.safe_load(f))  # replace
-        opt.cfg, opt.weights, opt.resume = "", ckpt, True  # reinstate
+        with open(Path(ckpt).parent.parent / "opt.yaml", errors="ignore") as f:
+            opt = argparse.Namespace(**yaml.safe_load(f))  # replace
         opt.save_dir = str(Path(ckpt).parent.parent)  # save_dir
-        opt.data, opt.hyp = check_file(opt.data), check_yaml(opt.hyp)  # checks
+        opt.cfg, opt.weights, opt.resume = "", ckpt, True  # reinstate
         LOGGER.info(f"Resuming training from {ckpt}")
     else:
         opt.data, opt.cfg, opt.hyp, opt.weights, opt.project = (
@@ -1088,6 +1093,48 @@ def main(opt, callbacks=Callbacks()):
             f"Results saved to {colorstr('bold', save_dir)}\n"
             f"Usage example: $ python train.py --hyp {evolve_yaml}"
         )
+    return opt
+
+
+def write_yaml(opt):
+    # 将opt对象转换为字典格式
+    if hasattr(opt, "__dict__"):
+        data = opt.__dict__
+    else:
+        data = vars(opt)
+
+    # 处理Path对象，将其转换为字符串
+    processed_data = {}
+    for key, value in data.items():
+        # Skip tkinter objects that can't be serialized
+        if "tkinter" in str(type(value)):
+            continue
+        if isinstance(value, Path):
+            processed_data[key] = str(value)
+        elif hasattr(value, "__dict__"):  # 处理嵌套对象
+            processed_data[key] = str(value) if isinstance(value, Path) else value
+        else:
+            processed_data[key] = value
+
+    file = opt.save_dir + "/opt.yaml"
+    # file = file.resolve()  # 转换为绝对路径
+
+    # 写入YAML文件
+    with open(file, encoding="utf-8", mode="w") as f:
+        return yaml.dump(processed_data, stream=f, allow_unicode=True)
+
+
+def read_yaml():
+    file = Path(ROOT) / "runs/train/opt.yaml"
+    file = file.resolve()  # 转换为绝对路径
+    with open(file, errors="ignore") as f:
+        data = yaml.safe_load(f)
+        # 将数据转换为argparse.Namespace对象
+        opt = argparse.Namespace()
+        for key, value in data.items():
+            setattr(opt, key, value)
+        print(opt)
+        return opt
 
 
 def show_progress(root, progressbar, add_value):
@@ -1102,16 +1149,25 @@ def run(**kwargs):
     for k, v in kwargs.items():
         setattr(opt, k, v)
     opt = main(opt)
+    write_yaml(opt)
     return opt
 
 
 if __name__ == "__main__":
-    # run(
-    #     weights="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train",
-    #     epochs=30,
-    #     device="mps",
-    #     resume="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/last.pt",
-    # )
+    # 参数顺序：
+    # 1.resume不为空，则加载 resume 中的文件，从中断处继续训练
+    # 2.根据 weights 参数加载预训练模型（必须.pt结尾），进行 fine-tuning
+    # 3.否则从cfg 参数指定的 src/yolov5/models/yolov5s.yaml 中加载默认模型
+    # cache: disk 或 ram，分别表示将数据集缓存到磁盘或内存中, default: None 不使用缓存
+    run(
+        weights="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp9/weights/last.pt",
+        epochs=5,
+        device="mps",
+        batch_size=12,
+        #cache="ram",
+        #resume="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp11/weights/last.pt",
+        root=None,
+    )
 
     # strip_optimizer(
     #     f="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/best.pt"
@@ -1119,8 +1175,8 @@ if __name__ == "__main__":
     # strip_optimizer(
     #     f="/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/last.pt"
     # )
-    evaluate(
-        f=Path(
-            "/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/last.pt"
-        )
-    )
+    # evaluate(
+    #     f=Path(
+    #         "/Users/bytedance/python/Fe-Fool/src/yolov5/runs/train/exp6/weights/last.pt"
+    #     )
+    # )

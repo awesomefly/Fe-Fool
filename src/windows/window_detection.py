@@ -15,7 +15,7 @@ from robot.robot_master import Observable
 from robot.tools import get_cameras, YamlHandler, GlobalVar
 from windows.image_find_focus import FocusFinder
 
-MODEL_PATH = ROOT + "../yolov5/runs/train/exp/weights/best.pt"
+DEFAULT_MODEL_PATH = ROOT + "../yolov5/runs/train/exp9/weights/best.pt"
 
 
 def yolo_to_pixel(yolo_list, rows_b, cols_b):
@@ -48,12 +48,14 @@ def tk_show_img(panel, img):
 def tk_show_img_opencv_only(panel, img, suffix=""):
     if img is not None:
         # 只使用OpenCV显示，跳过Tkinter部分
-        cv2.imshow(f"Camera Frame {suffix}", img)
-        key = cv2.waitKey(1) & 0xFF
+        window_name = f"Camera Frame {suffix}"
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)  # 创建可调整大小的窗口
+        cv2.resizeWindow(window_name, 640, 640)  # 设置窗口大小为640x480
+        #img = cv2.resize(img.copy(), (640, 640))
+        cv2.imshow(window_name, img)
 
         # 在panel上显示状态信息而不是图像
         try:
-            pass  # todo：版本不兼容
             panel.config(
                 text=f"图像显示在OpenCV窗口中\n按'q'退出\n图像尺寸: {img.shape}"
             )
@@ -86,13 +88,13 @@ class DetecterWindow(Observable):
     def window(self, root):
         self.root = root
         self.root.config(width=400, height=1000)
-        self.root.title("视觉检测&下棋对弈")
+        self.root.title("视觉检测")
         self.panel = tkinter.Label(self.root)
         self.panel.grid(row=0, column=1, sticky=("e", "w"))
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
         self.path = tkinter.StringVar(self.root)
-        self.path.set(os.path.abspath(MODEL_PATH))
+        self.path.set(os.path.abspath(DEFAULT_MODEL_PATH))
 
         self.path_label = tkinter.Label(self.root, text="模型路径:")
         self.path_label.grid(row=1, column=0)
@@ -145,7 +147,7 @@ class DetecterWindow(Observable):
             command=self.set_chess_think_depth,
         )  # 调用执行函数，是数值显示在 Label控件中
         self.connect_button = tkinter.Button(
-            self.root, text="连接机械臂", command=self.connect_cmd
+            self.root, text="连接控制器", command=self.connect_cmd
         )
         self.connect_label = tkinter.Label(
             self.root,
@@ -169,7 +171,11 @@ class DetecterWindow(Observable):
         self.detect_flag = True
         self.capture = cv2.VideoCapture(dev)  # , cv2.CAP_DSHOW)
         img = self.get_video_frame()
-        tk_show_img_opencv_only(self.panel, img, suffix="[origin image]")
+        # tk_show_img_opencv_only(self.panel, img, suffix="[origin image]")
+        self.panel.config(
+            text=f"图像显示在OpenCV窗口中\n按'q'退出\n图像尺寸: {img.shape}"
+        )
+        self.panel.update()
 
         # 设置分辨率
         # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -203,18 +209,20 @@ class DetecterWindow(Observable):
         cv2.destroyAllWindows()
 
     def connect_cmd(self):
-        if self.connect_button["text"] == "连接机械臂":
+        if self.connect_button["text"] == "连接控制器":
             if self.game_mode.get() == 0:
                 tkinter.messagebox.showerror("错误", "未选择模式", parent=self.root)
                 return
 
             if self.connect_robot(self.game_mode.get()):
-                self.connect_button["text"] = "断开连接"
+                self.connect_button["text"] = "断开控制器"
             else:
-                tkinter.messagebox.showerror("错误", "未开启机械臂", parent=self.root)
+                tkinter.messagebox.showerror(
+                    "错误", "控制器未开启指令监听", parent=self.root
+                )
         else:
             self.disconnect_robot()
-            self.connect_button["text"] = "连接机械臂"
+            self.connect_button["text"] = "连接控制器"
 
     def connect_robot(self, game_mode):
         if self.connect_flag:
@@ -228,21 +236,21 @@ class DetecterWindow(Observable):
         elif game_mode == 3:
             self.robot_master = robot_master.GrabRobotMaster()  # 物体分类
 
-        if self.robot_master.connect_robot() == 0:  # 连接成功
-            self.connect_flag = True
+        # if self.robot_master.connect_robot() == 0:  # 连接成功
+        self.connect_flag = True
 
-            self.chess_think_depth_scale.grid_forget()
-            self.chess_think_depth_label.grid_forget()
-            self.radio_button_gobang.grid_forget()
-            self.radio_button_chess.grid_forget()
-            self.radio_button_grab.grid_forget()
+        self.chess_think_depth_scale.grid_forget()
+        self.chess_think_depth_label.grid_forget()
+        self.radio_button_gobang.grid_forget()
+        self.radio_button_chess.grid_forget()
+        self.radio_button_grab.grid_forget()
 
-            # 注册观察者，消费视觉识别结果
-            self.register(self.robot_master, "yolo_res")
-            self.register(self.robot_master, "safety")
-            return True
-        else:
-            return False
+        # 注册观察者，消费视觉识别结果
+        self.register(self.robot_master, "yolo_res")
+        self.register(self.robot_master, "safety")
+        return True
+        # else:
+        # return False
 
     def disconnect_robot(self):
         self.unregister(self.robot_master, "yolo_res")
@@ -275,8 +283,8 @@ class DetecterWindow(Observable):
         )
         self.radio_button_grab.grid(row=5, column=2)
 
-        self.connect_button.grid(row=6, column=1)
-        self.connect_label.grid(row=6, column=2)
+        self.connect_button.grid(row=7, column=1)
+        self.connect_label.grid(row=6, column=1)
 
         self.detect()
 
@@ -314,18 +322,20 @@ class DetecterWindow(Observable):
             self.inp1.grid_forget()
             self.camera_label.grid(row=3, column=0)
             self.cameraselect.grid(row=3, column=1)
-
+            # os.path.dirname(self.path.get()) + "/../data.yaml"
             GlobalVar.set_value(
                 "DATA_YAML_PATH", os.path.dirname(self.path.get()) + "/../data.yaml"
             )  # 该模型对应的数据集yaml文件
 
     def select_path(self):
-        path_ = filedialog.askopenfilename(initialdir=MODEL_PATH)
+        path_ = filedialog.askopenfilename(initialdir=DEFAULT_MODEL_PATH)
         if path_ == "":
-            self.path.get()  # 当打开文件路径选择框后点击"取消" 输入框会清空路径，所以使用get()方法再获取一次路径
-        else:
+            # 当打开文件路径选择框后点击"取消" 输入框会清空路径，所以使用get()方法再获取一次路径
+            path_ = self.path.get()
+        elif os.name == "nt":  # 如果是 Windows 系统
             path_ = path_.replace("/", "\\")  # 实际在代码中执行的路径为“\“ 所以替换一下
-            self.path.set(path_)
+        self.path.set(path_)
+        LOG.info(f"选择的模型路径为：{path_}")
 
     def set_chess_think_depth(self, value):
         self.chess_think_depth_label.config(
@@ -361,20 +371,19 @@ class DetecterWindow(Observable):
                 continue
 
             # 取最大轮廓，即棋盘
-            focus_image, has_res = focus_finder.find_focus(cur_img)
+            focus_image, has_res = focus_finder.find_chessboard(cur_img)
             if has_res:
+                # tk_show_img_opencv_only(self.panel, focus_image, suffix="[focus image]")
                 # res_img: 经过检测标注的图像（可能在目标周围绘制了边界框）
                 # yolo_list: 检测到的目标列表，包含了检测到的对象类别、位置等信息
                 res_img, yolo_list = self.self_yolo.detect(focus_image)
-                tk_show_img_opencv_only(
-                    self.panel, res_img, suffix="[yolo detect result]"
-                )
+                tk_show_img_opencv_only(self.panel, res_img, suffix="[yolo detect]")
                 # 将YOLO输出的归一化坐标转换为像素坐标
                 pixel_list = yolo_to_pixel(
                     yolo_list, res_img.shape[0], res_img.shape[1]
                 )
 
-                # 安装类型排序，如果相邻两帧的检测结果相同，则认为是可信的
+                # 按类型排序，如果相邻两帧的检测结果相同，则认为是可信的
                 pixel_list.sort(key=lambda x: x[2], reverse=False)
                 new_class_list = [i[2] for i in pixel_list]
                 if len(new_class_list) == 0:

@@ -15,7 +15,7 @@ class YoloDataWindow:
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
         self.label1 = tkinter.Label(
-            self.root, text="请输入每张背景需要生成的数据量:", font=12
+            self.root, text="请输入每张背景被使用次数:", font=12
         )
         self.inp1 = tkinter.Entry(self.root)
         self.inp1.insert(0, "5")
@@ -24,7 +24,7 @@ class YoloDataWindow:
 
         self.label2 = tkinter.Label(
             self.root,
-            text="请输入前景间重叠因子(越小随机的各个前景间可重合度越高):",
+            text="请输入前景物体间重叠因子(越小随机的各个前景间可重合度越高):",
             font=12,
         )
         self.inp2 = tkinter.Entry(self.root)
@@ -33,7 +33,7 @@ class YoloDataWindow:
         self.inp2.grid(row=1, column=1)
 
         self.label3 = tkinter.Label(
-            self.root, text="请输入每个前景在背景中的随机的最大个数:", font=12
+            self.root, text="请输入每个前景物体在背景中出现的最大次数:", font=12
         )
         self.inp3 = tkinter.Entry(self.root)
         self.inp3.insert(0, "3")

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import time
+import threading
 import numpy as np
 import cv2
 import os
@@ -33,16 +34,31 @@ def tk_show_img(panel, img):
 
 def tk_show_img_opencv_only(panel, img, suffix="", update_panel=True):
     if img is not None:
-        # 只使用OpenCV显示，跳过Tkinter部分
-        cv2.imshow(f"Camera {suffix}", img)
-        # key = cv2.waitKey(1) & 0xFF
+        # Handle both RGB (3-channel) and RGBA (4-channel) images
+        if img.shape[2] == 3:  # RGB image
+            b, g, r = cv2.split(img)
+            a = np.ones_like(b) * 255  # Create opaque alpha channel
+        else:  # RGBA image
+            b, g, r, a = cv2.split(img)
+
+        rgb = cv2.merge([b, g, r])
+        alpha = a / 255.0
+
+        bg_color = (255, 255, 255)  # 白色背景
+        bg = np.full(rgb.shape, bg_color, dtype=np.uint8)
+        # 公式：out = rgb*alpha + bg*(1-alpha)
+        out = (
+            rgb.astype(float) * alpha[:, :, None]
+            + bg.astype(float) * (1 - alpha[:, :, None])
+        ).astype(np.uint8)
+        cv2.imshow(f"Camera {suffix}", out)
 
         # 在panel上显示状态信息而不是图像
         if update_panel:
             try:
                 # todo：版本不兼容
                 panel.config(
-                    text=f"图像显示在OpenCV窗口中\n按'q'退出\n图像尺寸: {img.shape}"
+                    text=f"摄像头打开成功! \n 图像显示在OpenCV窗口中\n按'q'退出\n图像尺寸: {img.shape}"
                 )
                 panel.update()
             except:
@@ -98,6 +114,7 @@ cv_operation_queue = queue.Queue()
 class GeneraterWindow:
     def __init__(self, root, window_flag_bit=None):
         self.detect_flag = True
+        self.save_flag_event = threading.Event()
         self.save_background_flag = False
         self.save_foreground_flag = False
         self.next_img_flag = False
@@ -154,11 +171,22 @@ class GeneraterWindow:
         )
         self.inp_class = tkinter.Entry(self.root)
 
+        self.detect_label = tkinter.Label(
+            self.root, text="请输入当前检查的物体是:", font=12
+        )
+        self.detect_type = tkinter.IntVar(self.root, value=1)
+        self.radio_button_board = tkinter.Radiobutton(
+            self.root, text="背景(棋盘)", variable=self.detect_type, value=1
+        )
+        self.radio_button_piece = tkinter.Radiobutton(
+            self.root, text="物体(棋子)", variable=self.detect_type, value=2
+        )
+
         self.save_background_button = tkinter.Button(
-            self.root, text="保存背景", command=self.save_background_img
+            self.root, text="保存为背景", command=self.save_background_img
         )
         self.save_foreground_button = tkinter.Button(
-            self.root, text="保存物体", command=self.save_foreground_img
+            self.root, text="保存为物体", command=self.save_foreground_img
         )
         self.next_img_button = tkinter.Button(
             self.root, text="不保存/继续", command=self.next_img
@@ -180,9 +208,13 @@ class GeneraterWindow:
         self.inp_class.grid(row=3, column=1)
         self.target_panel.grid(row=4, column=1)
 
-        self.save_foreground_button.grid(row=5, column=1, ipadx=40)
-        self.save_background_button.grid(row=5, column=0, ipadx=40)
-        self.next_img_button.grid(row=5, column=2, ipadx=40)
+        self.detect_label.grid(row=5, column=0)
+        self.radio_button_board.grid(row=5, column=1)
+        self.radio_button_piece.grid(row=5, column=2)
+
+        self.save_foreground_button.grid(row=6, column=1, ipadx=40)
+        self.save_background_button.grid(row=6, column=0, ipadx=40)
+        self.next_img_button.grid(row=6, column=2, ipadx=40)
 
         # 启动一个新的线程来执行前景检测，避免阻塞GUI主线程
         import threading
@@ -203,12 +235,15 @@ class GeneraterWindow:
 
     def save_background_img(self):
         self.save_background_flag = True
+        self.save_flag_event.set()
 
     def save_foreground_img(self):
         self.save_foreground_flag = True
+        self.save_flag_event.set()
 
     def next_img(self):
         self.next_img_flag = True
+        self.save_flag_event.set()
 
     def remove_background(self, input_img):
         return remove(data=input_img, session=self.session)
@@ -216,19 +251,30 @@ class GeneraterWindow:
     def open_camera(self, dev):
         # self.capture = cv2.VideoCapture(dev, cv2.CAP_DSHOW)  # 0为电脑内置摄像头
         self.capture = cv2.VideoCapture(dev)  # for mac
+
         # self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)  # 设置分辨率
         # self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        self.capture.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # 设置自动对焦
-        while self.detect_flag:
-            ret, img = self.get_video_frame()
-            if not ret:
-                LOG.error("摄像头无数据")
-                continue
-            else:
-                tk_show_img_opencv_only(
-                    self.camera_panel, img, suffix=" Origin", update_panel=True
-                )
-                return
+        # self.capture.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # 设置自动对焦
+        def show_frame():
+            while self.detect_flag:
+                ret, img = self.get_video_frame()
+                if not ret:
+                    LOG.error("摄像头无数据")
+                    continue
+                else:
+                    cv_operation_queue.put(
+                        lambda: tk_show_img_opencv_only(
+                            self.camera_panel, img, suffix=" Origin"
+                        )
+                    )
+                time.sleep(0.1)
+
+        # 启动一个新的线程来执行前景检测，避免阻塞GUI主线程
+        import threading
+
+        self.detection_thread = threading.Thread(target=show_frame)
+        self.detection_thread.daemon = True  # 设置为守护线程，主程序退出时自动结束
+        self.detection_thread.start()
 
     def get_video_frame(self):
         ret, frame = (
@@ -245,14 +291,15 @@ class GeneraterWindow:
                 continue
 
             # 放入队列，在主线程中处理
-            # tk_show_img_opencv_only(self.camera_panel, cur_img, suffix=" Origin")
             cv_operation_queue.put(
                 lambda: tk_show_img_opencv_only(
                     self.camera_panel, cur_img, suffix=" Origin"
                 )
             )
-
-            focus_image, res = focus_finder.find_focus(cur_img)
+            if self.detect_type.get() == 1:  # 棋盘
+                focus_image, res = focus_finder.find_chessboard(cur_img)
+            elif self.detect_type.get() == 2:  # 棋子
+                focus_image, res = focus_finder.find_chesspiece(cur_img)
             if res:
                 # if self.is_first_frame:  # 第一次获取到焦点图像时，记录其大小
                 #     self.is_first_frame = False
@@ -265,14 +312,23 @@ class GeneraterWindow:
                         self.camera_panel, focus_image, suffix="Focus"
                     )
                 )
-                while (
-                    self.next_img_flag == False
-                    and self.save_background_flag == False
-                    and self.save_foreground_flag == False
-                ):
-                    # 等待用户选择
-                    LOG.info("请选择保存背景、前景或继续")
-                    time.sleep(1)
+                # while (
+                #     self.next_img_flag == False
+                #     and self.save_background_flag == False
+                #     and self.save_foreground_flag == False
+                # ):
+                #     # 等待用户选择
+                #     LOG.info("请选择保存背景、前景或继续")
+                #     time.sleep(1)
+
+                LOG.warning("请选择[保存为背景]、[保存为前景] 或 [不保存/继续]")
+                result = self.save_flag_event.wait(timeout=30)
+                if result:
+                    LOG.debug("Event occurred within timeout")
+                    self.save_flag_event.clear()  # 重置以便下次使用
+                else:
+                    LOG.debug("Timeout waiting for event")
+                    continue
 
                 if self.next_img_flag == True:
                     self.next_img_flag = False
@@ -296,38 +352,58 @@ class GeneraterWindow:
                     except:
                         messagebox.showerror("错误", "种类必须是数字", parent=self.root)
                         continue
-                    output = self.remove_background(focus_image)  # 扣除背景
-                    cv_operation_queue.put(
-                        lambda: tk_show_img_opencv_only(
-                            self.target_panel, output, suffix="target1"
-                        )
+
+                    messagebox.showinfo(
+                        "提示",
+                        str(self.inp_name.get())
+                        + "已成功生成，序号为："
+                        + str(inp_class),
+                        parent=self.root,
                     )
-                    output = crop_image(output)  # 扣除背景后，裁剪物体图像
-                    if output.shape[0] > 20 and output.shape[1] > 20:
-                        messagebox.showinfo(
-                            "提示",
-                            str(self.inp_name.get())
-                            + "已成功生成，序号为："
-                            + str(inp_class),
-                            parent=self.root,
-                        )
-                        LOG.debug(f"物体抠取成功，文件名 : {self.inp_name.get()}")
-                        p_name = (
-                            FOREGROUND_INPUT_PATH
-                            + str(self.inp_name.get())
-                            + "-"
-                            + str(inp_class)
-                            + "-"
-                            + str(time.time())
-                            + ".png"
-                        )
-                        cv2.imwrite(p_name, output)
-                        # 放入队列，在主线程中处理
-                        cv_operation_queue.put(
-                            lambda: tk_show_img_opencv_only(
-                                self.target_panel, output, suffix="target2"
-                            )
-                        )
+                    # LOG.debug(f"物体抠取成功，文件名 : {self.inp_name.get()}")
+                    p_name = (
+                        FOREGROUND_INPUT_PATH
+                        + str(self.inp_name.get())
+                        + "-"
+                        + str(inp_class)
+                        + "-"
+                        + str(time.time())
+                        + ".png"
+                    )
+                    cv2.imwrite(p_name, focus_image)
+
+                    # output = self.remove_background(focus_image)  # 扣除背景
+                    # cv_operation_queue.put(
+                    #     lambda: tk_show_img_opencv_only(
+                    #         self.target_panel, output, suffix="target1"
+                    #     )
+                    # )
+                    # output = crop_image(output)  # 扣除背景后，裁剪物体图像
+                    # if output.shape[0] > 20 and output.shape[1] > 20:
+                    # messagebox.showinfo(
+                    #     "提示",
+                    #     str(self.inp_name.get())
+                    #     + "已成功生成，序号为："
+                    #     + str(inp_class),
+                    #     parent=self.root,
+                    # )
+                    # LOG.debug(f"物体抠取成功，文件名 : {self.inp_name.get()}")
+                    # p_name = (
+                    #     FOREGROUND_INPUT_PATH
+                    #     + str(self.inp_name.get())
+                    #     + "-"
+                    #     + str(inp_class)
+                    #     + "-"
+                    #     + str(time.time())
+                    #     + ".png"
+                    # )
+                    # cv2.imwrite(p_name, output)
+                    # 放入队列，在主线程中处理
+                    # cv_operation_queue.put(
+                    #     lambda: tk_show_img_opencv_only(
+                    #         self.target_panel, output, suffix="target2"
+                    #     )
+                    # )
             time.sleep(0.2)
 
 

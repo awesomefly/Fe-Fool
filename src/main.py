@@ -21,22 +21,22 @@ class MainWindow:
     def window(self):
         self.root = Tk()
         self.root.title("铁憨憨")
-        self.root.geometry("960x640")
+        self.root.geometry("1080x640")
         self.root.protocol("WM_DELETE_WINDOW", self.root.quit)
 
         Button(self.root, text="机械臂控制", command=self.button_serialport).grid(
             row=0, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
         )
-        Button(self.root, text="视觉检测&下棋", command=self.button_detecter).grid(
+        Button(self.root, text="视觉检测", command=self.button_detecter).grid(
             row=1, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
         )
         Button(self.root, text="制作样本", command=self.button_generater).grid(
             row=2, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
         )
-        Button(self.root, text="一键生成数据集", command=self.button_yolodata).grid(
+        Button(self.root, text="生成数据集", command=self.button_yolodata).grid(
             row=3, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
         )
-        Button(self.root, text="一键训练神经网络", command=self.button_train).grid(
+        Button(self.root, text="训练神经网络", command=self.button_train).grid(
             row=4, column=0, ipadx=60, ipady=15, padx=20, pady=20, sticky=("e", "w")
         )
 

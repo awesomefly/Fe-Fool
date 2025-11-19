@@ -15,7 +15,10 @@ names:
 - hongshuai
 - hongpao
 - hongbing
-nc: 16
+- card
+- cap
+- hand
+nc: 19
 path: ../../image_data/board_game/output_yolo
 test: images/test
 train: images/train

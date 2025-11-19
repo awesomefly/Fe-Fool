@@ -283,10 +283,7 @@ class YoloDataProducer(object):
             YamlHandler(file_path).write_yaml(data)
             LOG.debug(f"yaml修改后数据：{data}")
 
-    def produce_single(self, img_background):
-        random_point_list = []  # 放置点信息
-        start_index = 0
-        order = 0
+    def produce_single(self, ori_img_background):
         foreground_list = []
         # 从各种类中随机一部分图像出来
         for _class in self.foreground_list_map.keys():
@@ -296,61 +293,66 @@ class YoloDataProducer(object):
                 )
                 foreground_list.append(self.foreground_list_map[_class][random_index])
         random.shuffle(foreground_list)
-        foreground_list = foreground_list[0 : random.randint(1, len(foreground_list))]
+        # foreground_list = foreground_list[0 : random.randint(1, len(foreground_list))]
+        length = len(foreground_list)
+        step = random.randint(int(length / 3), int(length / 2))
+        for i in range(0, len(foreground_list), step):
+            img_background = ori_img_background.copy()
+            
+            start_index = 0
+            random_point_list = []  # 放置点信息
+            for filename in foreground_list[i : i + step]:
+                img_foreground = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
+                try:
+                    img_foreground = transparence_to_white(img_foreground)
+                    # img_foreground = add_salt_noise(img_foreground)
+                except:
+                    pass
+                # 将前景转化为二值化图mask
+                img_gray = cv2.cvtColor(img_foreground, cv2.COLOR_BGR2GRAY)
+                # img_gray = np.max(img_foreground, axis=2)
+                ret, mask = cv2.threshold(img_gray, 254, 255, cv2.THRESH_BINARY)
 
-        for filename in foreground_list:
-            img_foreground = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
-            try:
-                img_foreground = transparence_to_white(img_foreground)
-                # img_foreground = add_salt_noise(img_foreground)
-            except:
-                pass
-            # 将前景转化为二值化图mask
-            img_gray = cv2.cvtColor(img_foreground, cv2.COLOR_BGR2GRAY)
-            # img_gray = np.max(img_foreground, axis=2)
-            ret, mask = cv2.threshold(img_gray, 254, 255, cv2.THRESH_BINARY)
+                # 对mask取反操作颠倒黑白
+                mask_inv = cv2.bitwise_not(mask)
 
-            # 对mask取反操作颠倒黑白
-            mask_inv = cv2.bitwise_not(mask)
+                # 对前景进行掩膜操作，去除前景中黑的部分
+                img_fg = cv2.bitwise_and(img_foreground, img_foreground, mask=mask_inv)
 
-            # 对前景进行掩膜操作，去除前景中黑的部分
-            img_fg = cv2.bitwise_and(img_foreground, img_foreground, mask=mask_inv)
+                # 随机前景在背景中的放置点
+                self.random_point(
+                    img_background, img_foreground, filename, random_point_list
+                )
 
-            # 随机前景在背景中的放置点
-            order += 1
-            self.random_point(
-                img_background, img_foreground, filename, random_point_list
+                # 根据放置点将前景放置进背景中
+                for x, y, rows, cols, _, _, _ in random_point_list[start_index:]:
+                    # 截取背景中的放置区域
+                    roi = img_background[x : rows + x, y : cols + y]
+
+                    # 对放置区域进行掩膜操作，将前景中黑的部分换为背景的像素
+                    roi_bg = cv2.bitwise_and(roi, roi, mask=mask)
+
+                    # 混合背景图和前景图，得到混合图dst
+                    dst = cv2.add(roi_bg, img_fg)
+
+                    # 将混合图dst覆盖背景的放置区域，得到最终的效果图
+                    img_background[x : rows + x, y : cols + y] = dst
+                start_index = len(random_point_list)
+
+            # 生成yolo格式的数据集
+            save_name = threading.get_ident().__str__() + time.time().__str__()
+
+            # 训练集:测试集:验证集 = 6:2:2
+            random_file_num = random.randint(1, 5)
+            img_background = random_brightness(img_background)
+            cv2.imwrite(
+                self.num_to_file_map[random_file_num][0] + save_name + ".png",
+                img_background,
             )
-
-            # 根据放置点将前景放置进背景中
-            for x, y, rows, cols, _, _, _ in random_point_list[start_index:]:
-                # 截取背景中的放置区域
-                roi = img_background[x : rows + x, y : cols + y]
-
-                # 对放置区域进行掩膜操作，将前景中黑的部分换为背景的像素
-                roi_bg = cv2.bitwise_and(roi, roi, mask=mask)
-
-                # 混合背景图和前景图，得到混合图dst
-                dst = cv2.add(roi_bg, img_fg)
-
-                # 将混合图dst覆盖背景的放置区域，得到最终的效果图
-                img_background[x : rows + x, y : cols + y] = dst
-            start_index = len(random_point_list)
-
-        # 生成yolo格式的数据集
-        save_name = threading.get_ident().__str__() + time.time().__str__()
-
-        # 训练集:测试集:验证集 = 6:2:2
-        random_file_num = random.randint(1, 5)
-        img_background = random_brightness(img_background)
-        cv2.imwrite(
-            self.num_to_file_map[random_file_num][0] + save_name + ".png",
-            img_background,
-        )
-        self.to_yolo(
-            self.num_to_file_map[random_file_num][1] + save_name + ".txt",
-            random_point_list,
-        )
+            self.to_yolo(
+                self.num_to_file_map[random_file_num][1] + save_name + ".txt",
+                random_point_list,
+            )
 
     def random_point(self, img_background, img_foreground, file_name, point_list):
         # random.seed(time.time())

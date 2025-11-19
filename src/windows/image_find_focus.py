@@ -8,7 +8,7 @@ class FocusFinder(object):
     def __init__(self, scale=1, allowed_moving_girth=300):
         self.scale = scale
         self.allowed_moving_girth = allowed_moving_girth
-        self.allowed_moving_length = 80
+        self.allowed_moving_length = 20
         self.pre_corner_point = [(0, 0), (0, 0), (0, 0), (0, 0)]
         self.pre_max_length = 0
         self.is_first = True
@@ -27,13 +27,16 @@ class FocusFinder(object):
         k = np.ones((1, 1), np.uint8)
         # 对边缘图像进行闭运算，连接断开的边缘
         canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, k)
-        cv2.imshow("canny2", canny)
+        # cv2.imshow("canny2", canny)
 
         # 查找边缘图像的外部轮廓
         contours, hierarchy = cv2.findContours(
             canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
-
+        # 过滤小面积的轮廓
+        contours = [cnt for cnt in contours if cv2.contourArea(cnt) >= 10]
+        # 轮廓合并
+        contours = self.merge_contours(contours, merge_distance=1000000)
         # 按轮廓面积从大到小排序，只保留面积最大的一个轮廓
         contours = sorted(contours, key=cv2.contourArea, reverse=True)[:1]
         # 如果没有找到轮廓，返回失败
@@ -51,13 +54,14 @@ class FocusFinder(object):
         temp_caver = np.ones(canny.shape, np.uint8) * 255
         # 轮廓逼近函数，用于将复杂的轮廓近似为具有较少顶点的简单多边形。
         # 这在图像处理中常用于简化轮廓形状，去除不必要的细节，使轮廓更加规整。
-        contours1 = cv2.approxPolyDP(contours[0], 10, True)
+        # contours1 = cv2.approxPolyDP(contours[0], 10, True)
+        contours1 = self.optimal_approx_poly(contours[0], 0.01)
         # 在画布上绘制逼近后的轮廓
         cv2.drawContours(temp_caver, contours1, -1, (0, 255, 0), 1)
 
         debug_caver = np.ones((canny.shape[0], canny.shape[1], 3), np.uint8) * 255
-        cv2.drawContours(debug_caver, contours[0], -1, (0, 0, 0), 1)  # black
-        cv2.drawContours(debug_caver, contours1, -1, (0, 255, 0), 2)  # green
+        cv2.drawContours(debug_caver, contours[0], -1, (0, 0, 0), 5)  # black
+        cv2.drawContours(debug_caver, contours1, -1, (0, 255, 0), 5)  # green
 
         # 使用Shi-Tomasi算法检测角点作为备选角点
         corners = cv2.goodFeaturesToTrack(temp_caver, 25, 0.5, 10)
@@ -69,7 +73,7 @@ class FocusFinder(object):
             for corner in corners:
                 x, y = corner.ravel()  # 获取角点坐标
                 # 在角点位置绘制红色圆圈，半径为3，线宽为-1（填充）
-                cv2.circle(debug_caver, (int(x), int(y)), 3, (0, 0, 255), 1)  # red
+                cv2.circle(debug_caver, (int(x), int(y)), 4, (0, 0, 255), 2)  # red
         # 设置角点精化算法的终止条件
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         # 对检测到的角点进行亚像素级精化
@@ -80,24 +84,24 @@ class FocusFinder(object):
             LOG.debug(f"角点数量:{len(corners)}小于 4 个")
             return 0, False
 
-        shape = self.detect_shape(contours[0])
-        if shape == "circle" or shape == "polygon":
-            corner_point = self.find_corner3(corners)  # 外接矩形法，找到4个顶点
-        else:
-            # 提取角点坐标到列表中
-            point_list = []
-            for i in corners:
-                x, y = i.ravel()
-                point_list.append((x, y))
-            # 调用find_corner方法找到4个关键顶点
-            corner_point = self.find_corner(point_list)  # 找到4个顶点
-        LOG.debug(f"角点位置:{corner_point}, 形状:{shape}")
+        # shape = self.detect_shape(contours[0])
+        # if shape == "circle":
+        #     corner_point = self.find_corner4(corners)
+        # else:
+        # 提取角点坐标到列表中
+        point_list = []
+        for i in corners:
+            x, y = i.ravel()
+            point_list.append((x, y))
+        # 调用find_corner方法找到4个关键顶点
+        corner_point = self.find_corner(point_list)  # 找到4个顶点
+        # LOG.debug(f"角点位置:{corner_point}, 形状:{shape}")
 
         # 调用sort_corner方法对4个顶点进行排序
         sort_corner_list = self.sort_corner(corner_point)
         for x, y in sort_corner_list:
-            cv2.circle(debug_caver, (int(x), int(y)), 5, (255, 0, 0), 1)  # blue
-        cv2.imshow("debug Caver", debug_caver)
+            cv2.circle(debug_caver, (int(x), int(y)), 6, (255, 0, 0), 2)  # blue
+        # cv2.imshow("debug Caver", debug_caver)
 
         # 如果是第一帧，初始化参考角点和参考周长
         if self.is_first:
@@ -107,7 +111,7 @@ class FocusFinder(object):
 
         # 检测物体是否移动过大（通过周长变化判断）
         if abs(self.pre_max_length - max_length) > self.allowed_moving_girth:
-            LOG.debug("物体位置移动过大")
+            # LOG.debug("物体位置移动过大")
             self.pre_max_length = max_length
             return 0, False
 
@@ -130,6 +134,204 @@ class FocusFinder(object):
         # for x, y in aim_size:
         #     cv2.circle(debug_caver, (int(x), int(y)), 5, (255, 0, 0), 1)  # blue
         # cv2.imshow("debug Caver", debug_caver)
+
+        # 提取原始图像中检测到的四个角点坐标
+        raw_size = []
+        for x, y in sort_corner_list:
+            raw_size.append([x, y])
+        # 将坐标转换为浮点数类型
+        raw_size = np.float32(raw_size)
+        # 计算透视变换矩阵
+        translate_map = cv2.getPerspectiveTransform(raw_size, aim_size)
+        # 应用透视变换，将图像中任意四边形区域矫正为规则矩形
+        translate_img = cv2.warpPerspective(
+            source_img, translate_map, (int(width), int(hight))
+        )
+        # 对图像进行水平翻转（镜像处理）
+        # translate_img = cv2.flip(translate_img, 1)  # 对角镜像
+        # 返回矫正后的图像和成功标志
+        return translate_img, True
+
+    def find_chessboard(self, source_img):
+        """
+        稳定获取棋盘最外4个角点
+        :param image_path: 图片路径
+        :param chessboard_size: 棋盘内部格子数（如8x8棋盘，内部有8行8列交叉点）
+        :return: 有序角点（左上→右上→右下→左下）
+        """
+        # 1. 读取图像并预处理（增强边缘）
+        img = source_img.copy()
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        # 增加对比度和亮度调整
+        gray = cv2.convertScaleAbs(gray, alpha=1.2, beta=10)
+
+        # 归一化对比度，降低阴影影响
+        # gray = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
+
+        # 二值化（自适应阈值比固定阈值更抗光照变化）
+        # gray = cv2.adaptiveThreshold(
+        #     gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 51, 10
+        # )
+
+        # 形态学闭运算（填充小缺口，强化外框连续性）
+        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        # gray = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel, iterations=2)
+
+        # 高斯模糊去噪 + Canny边缘检测
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        gray = cv2.Canny(blurred, 50, 120, apertureSize=3)
+
+        # cv2.imshow("canny2", gray)
+        # 2. 霍夫直线检测（找棋盘外框的4条直线）
+        # maxLineGap：同一条直线上的两个线段之间的间隙小于这个值，则将它们合并为一条线段。
+        lines = cv2.HoughLinesP(
+            gray, 1, np.pi / 180, threshold=150, minLineLength=10, maxLineGap=50
+        )
+        if lines is None:
+            LOG.debug("未检测到足够直线")
+            return None, False
+
+        # 3. 筛选直线（按角度分为“水平”和“垂直”两类，各保留2条最长直线）
+        horizontal_lines = []  # 水平直线（角度接近0°或180°）
+        vertical_lines = []  # 垂直直线（角度接近90°或270°）
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            # 计算直线角度（弧度转角度）
+            angle = np.arctan2(y2 - y1, x2 - x1) * 180 / np.pi
+            # 将角度归一化到0-360°范围，便于理解和分类
+            angle = angle if angle >= 0 else angle + 360
+            # 计算直线长度（用于筛选最长直线）
+            length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+            # 归类：水平（-45°~45°或135°~225°）、垂直（45°~135°或225°~315°）
+            if (-45 <= angle <= 45) or (135 <= angle <= 225) or (angle >= 315):
+                horizontal_lines.append((x1, y1, x2, y2, length))
+            elif (45 <= angle <= 135) or (225 <= angle <= 315):
+                vertical_lines.append((x1, y1, x2, y2, length))
+
+        # 筛选每类中最长的2条直线（确保是外框边）
+        if len(horizontal_lines) < 2 or len(vertical_lines) < 2:
+            LOG.debug("直线数量不足，无法构成外框")
+            return None, False
+
+        # 绘制外框直线
+        # for line in lines:
+        #     x1, y1, x2, y2 = line[0]
+        #     cv2.line(img, (x1, y1), (x2, y2), (0, 255, 0), 2)  # 绿色线
+        # for h_line in horizontal_lines:
+        #     x1, y1, x2, y2, _ = h_line
+        #     cv2.line(img, (x1, y1), (x2, y2), (255, 0, 0), 2)  # 蓝色水平线
+        # for v_line in vertical_lines:
+        #     x1, y1, x2, y2, _ = v_line
+        #     cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 2)  # 红色垂直线
+        # cv2.imshow("debug", img)
+
+        # 4.1 筛选最长的水平、垂直直线
+        # horizontal_lines = sorted(horizontal_lines, key=lambda l: l[4], reverse=True)
+        # horizontal_lines = horizontal_lines[: int(len(horizontal_lines) / 2)]
+        # vertical_lines = sorted(vertical_lines, key=lambda l: l[4], reverse=True)
+        # vertical_lines = vertical_lines[: int(len(vertical_lines) / 2)]
+
+        # 4.2 过滤长度太短的直线
+        # horizontal_lines = [line for line in horizontal_lines if line[4] > 300]
+        # vertical_lines = [line for line in vertical_lines if line[4] > 300]
+
+        # 4.3.1 筛选水平方向最外侧2条：y最小（上边界）、y最大（下边界）
+        horizontal_sorted = sorted(
+            horizontal_lines, key=lambda l: (l[1] + l[3]) / 2
+        )  # 按线中点y坐标排序
+        top_h_line = horizontal_sorted[0]  # 最上方水平直线（y最小）
+        bottom_h_line = horizontal_sorted[-1]  # 最下方水平直线（y最大）
+        horizontal_lines = [top_h_line, bottom_h_line]
+
+        # 4.3.2 筛选垂直方向最外侧2条：x最小（左边界）、x最大（右边界）
+        vertical_sorted = sorted(
+            vertical_lines, key=lambda l: (l[0] + l[2]) / 2
+        )  # 按线中点x坐标排序
+        left_v_line = vertical_sorted[0]  # 最左侧垂直直线（x最小）
+        right_v_line = vertical_sorted[-1]  # 最右侧垂直直线（x最大）
+        vertical_lines = [left_v_line, right_v_line]
+
+        # 4. 计算4条直线的交点（即棋盘外框4个角点）
+        def line_intersection(line1, line2):
+            """计算两条直线的交点"""
+            x1, y1, x2, y2, _ = line1
+            x3, y3, x4, y4, _ = line2
+            # 直线方程：ax + by + c = 0
+            a1 = y2 - y1
+            b1 = x1 - x2
+            c1 = x2 * y1 - x1 * y2
+            a2 = y4 - y3
+            b2 = x3 - x4
+            c2 = x4 * y3 - x3 * y4
+            # 求解交点
+            det = a1 * b2 - a2 * b1
+            if det == 0:
+                return None  # 平行无交点
+            x = (b1 * c2 - b2 * c1) / det
+            y = (a2 * c1 - a1 * c2) / det
+            return (x, y)
+
+        # 计算4个交点（水平2条线 × 垂直2条线）
+        corners = []
+        for h_line in horizontal_lines:
+            for v_line in vertical_lines:
+                pt = line_intersection(h_line, v_line)
+                if (
+                    pt is not None
+                    and 0 <= pt[0] < img.shape[1]
+                    and 0 <= pt[1] < img.shape[0]
+                ):
+                    corners.append(pt)
+        if len(corners) != 4:
+            LOG.debug("未计算出4个有效交点")
+            return None, False
+
+        # 5. 亚像素级角点优化（提升精度）
+        corners = np.array(corners, dtype=np.float32)
+
+        # 在角点周围11x11区域细化定位（亚像素级）
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        corners = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+
+        # 6. 角点排序（左上→右上→右下→左下，统一顺序）
+        # 调用sort_corner方法对4个顶点进行排序
+        corners = [i.ravel() for i in corners]  # 展平为一维数组
+        sort_corner_list = self.sort_corner(corners)
+
+        # 7. 可视化验证
+        for x, y in sort_corner_list:
+            cv2.circle(img, (int(x), int(y)), 6, (0, 255, 0), -1)  # 绿色角点
+        # 绘制外框直线
+        # for h_line in horizontal_lines:
+        #     x1, y1, x2, y2, _ = h_line
+        #     cv2.line(img, (x1, y1), (x2, y2), (255, 0, 0), 2)  # 蓝色水平线
+        # for v_line in vertical_lines:
+        #     x1, y1, x2, y2, _ = v_line
+        #     cv2.line(img, (x1, y1), (x2, y2), (0, 0, 255), 2)  # 红色垂直线
+        # cv2.imshow("debug", img)
+
+        # 如果是第一帧，初始化参考角点和参考周长
+        if self.is_first:
+            self.pre_corner_point = sort_corner_list
+            self.is_first = False
+
+        # 检测角点是否变化过大（通过角点位置变化判断）
+        if (
+            np.max(abs(np.array(sort_corner_list) - np.array(self.pre_corner_point)))
+            > self.allowed_moving_length
+        ):
+            LOG.debug(f"角点位置变化过大:{sort_corner_list}, {self.pre_corner_point}")
+            self.pre_corner_point = sort_corner_list
+            return 0, False
+        # LOG.debug(f"角点位置变化:{sort_corner_list}, {self.pre_corner_point}")
+
+        # 更新参考角点和参考周长
+        self.pre_corner_point = sort_corner_list
+
+        # 定义目标图像的四个角点坐标
+        hight, width = self.calSize(sort_corner_list, self.scale)
+        aim_size = np.float32([[0, 0], [width, 0], [width, hight], [0, hight]])
 
         # 提取原始图像中检测到的四个角点坐标
         raw_size = []
@@ -358,10 +560,10 @@ class FocusFinder(object):
                 # and self.is_all_points_inside(
                 #     cnt_points, approx
                 # ):
-                LOG.debug(
-                    f"epsilon_ratio={epsilon_ratio:.4f}, epsilon={epsilon:.2f}, "
-                    f"vertices={current_vertices}"
-                )
+                # LOG.debug(
+                #     f"epsilon_ratio={epsilon_ratio:.4f}, epsilon={epsilon:.2f}, "
+                #     f"vertices={current_vertices}"
+                # )
                 min_vertices = current_vertices
                 best_approx = approx  # 更新最优逼近
 
@@ -375,7 +577,7 @@ class FocusFinder(object):
         返回形状名称字符串，例如 'circle', 'square', 'rectangle', 'triangle' 等。
         contour 的形状应为 (N,1,2)，如 cv2.findContours 的输出之一。
         """
-        approx = self.optimal_approx_poly(contour, epsilon_ratio=0.001)
+        approx = self.optimal_approx_poly(contour, max_epsilon_ratio=0.001)
         verts = len(approx)
 
         # 先按顶点数粗略分类
@@ -449,7 +651,7 @@ class FocusFinder(object):
             merged.append(merged_cnt)
         return merged
 
-    def crop_image(
+    def find_chesspiece(
         self,
         img,
         shape="circle",
@@ -477,8 +679,10 @@ class FocusFinder(object):
         contours, hierarchy = cv2.findContours(
             canny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
-        LOG.debug(f"找到{len(contours)}个轮廓")
+        # LOG.debug(f"找到{len(contours)}个轮廓")
 
+        # 过滤小面积的轮廓
+        contours = [cnt for cnt in contours if cv2.contourArea(cnt) >= 10]
         # 轮廓合并
         contours = self.merge_contours(contours, merge_distance=1000000)
 
@@ -503,53 +707,26 @@ class FocusFinder(object):
         if shape == "circle":
             max_epsilon_ratio = 0.02
         else:
-            max_epsilon_ratio = 0.02
+            max_epsilon_ratio = 0.01
         approx_poly_points = self.optimal_approx_poly(contours[0], max_epsilon_ratio)
-        LOG.debug(
-            f"原轮廓点数{len(contours[0])}，轮廓逼近后点数{len(approx_poly_points)}"
-        )
+        # LOG.debug(
+        #     f"原轮廓点数{len(contours[0])}，轮廓逼近后点数{len(approx_poly_points)}"
+        # )
 
         debug_caver = np.ones((canny.shape[0], canny.shape[1], 3), np.uint8) * 255
         cv2.drawContours(debug_caver, contours[0], -1, (0, 0, 0), 8)  # black
         cv2.drawContours(debug_caver, approx_poly_points, -1, (0, 255, 0), 8)  # green
 
-        # # 创建与边缘图像相同尺寸的白色画布,在画布上绘制逼近后的轮廓
-        # temp_caver = np.ones(canny.shape, np.uint8) * 255
-        # cv2.drawContours(temp_caver, contours1, -1, (0, 255, 0), 1)
-        # # 使用Shi-Tomasi算法检测角点作为备选角点
-        # # 不太准！！经常把最优角点丢失
-        # corners = cv2.goodFeaturesToTrack(temp_caver, 25, 0.8, 10)
-        # # 如果没有检测到角点，返回失败
-        # if corners is None:
-        #     LOG.debug("未检测到角点")
-        #     return 0, False
-        # else:
-        #     for corner in corners:
-        #         x, y = corner.ravel()  # 获取角点坐标
-        #         # 在角点位置绘制红色圆圈，半径为3，线宽为-1（填充）
-        #         cv2.circle(debug_caver, (int(x), int(y)), 6, (0, 0, 255), 2)  # red
-        # LOG.debug(f"Shi-Tomasi算法检测到角点数量{len(corners)}")
-        # # 设置角点精化算法的终止条件
-        # criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-        # # 对检测到的角点进行亚像素级精化
-        # cv2.cornerSubPix(temp_caver, corners, (11, 11), (-1, -1), criteria)
-        # LOG.debug(f"角点精化后数量:{len(corners)}")
-        # # 将角点坐标转换为整数类型
-        # corners = np.int0(corners)
-        # if len(corners) < 4:
-        #     LOG.debug(f"角点数量:{len(corners)}小于 4 个")
-        #     return 0, False
-
         if shape == "circle":
             corner_point, center, radius = self.find_corner4(approx_poly_points)
-            source_img = self.crop_circle(source_img, center, radius - 20)
+            source_img = self.crop_circle1(source_img, center, radius)  # 移除背景
         else:
             points_list = []
             for v in approx_poly_points:
                 points_list.append((v[0][0], v[0][1]))
             corner_point = self.find_corner(points_list)
             # corner_point = self.find_corner3(approx_poly_points)
-        LOG.debug(f"角点位置:{corner_point}, 形状:{shape}")
+        # LOG.debug(f"角点位置:{corner_point}, 形状:{shape}")
 
         # 修正负坐标
         corner_point1 = []
@@ -563,10 +740,10 @@ class FocusFinder(object):
 
         # 调用sort_corner方法对4个顶点进行排序
         sort_corner_list = self.sort_corner(corner_point1)
-        LOG.debug(f"排序前：{corner_point1},排序后角点位置:{sort_corner_list}")
+        # LOG.debug(f"排序前：{corner_point1},排序后角点位置:{sort_corner_list}")
         for x, y in sort_corner_list:
             cv2.circle(debug_caver, (int(x), int(y)), 10, (255, 0, 0), 2)  # blue
-        cv2.imshow("debug Caver", debug_caver)
+        # cv2.imshow("debug Caver", debug_caver)
 
         # 计算目标图像的尺寸
         if hight is None or width is None:
@@ -592,20 +769,63 @@ class FocusFinder(object):
         # 返回矫正后的图像和成功标志
         return translate_img, True
 
-    def crop_circle(self, img, center, radius):
-        # 1. 获取图像高度、宽度
+    def crop_circle1(self, img, center, radius):
+        """
+        使用OpenCV函数创建透明圆形图像
+
+        Args:
+            img: 输入图像
+            center: 圆心坐标
+            radius: 圆半径
+
+        Returns:
+            透明背景的圆形图像
+        """
         h, w = img.shape[:2]
 
-        # 2. 创建空白掩码（单通道，全黑）
-        mask = np.zeros((h, w), dtype=np.uint8)
+        # 如果输入是灰度图，转换为BGR
+        if len(img.shape) == 2:
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
 
-        # 3. 绘制白色填充圆形
+        # 创建带Alpha通道的图像
+        bgra_img = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
+
+        # 创建圆形掩码
+        mask = np.zeros((h, w), dtype=np.uint8)
         cv2.circle(mask, center, radius, 255, -1)
 
-        # 4. 按位与操作，截取圆形区域
-        circular_img = cv2.bitwise_and(img, img, mask=mask)
+        # 应用掩码：圆形区域外设为透明
+        bgra_img[:, :, 3] = mask
 
-        # 显示结果（可选）
-        # cv2.imshow("Original", img)
-        # cv2.imshow("Circular Region", circular_img)
-        return circular_img
+        return bgra_img
+
+    def crop_circle2(self, img, center, radius):
+        """
+        使用 np.where 条件处理，效率较高
+
+        Args:
+            img: 输入图像
+            center: 圆心坐标
+            radius: 圆半径
+
+        Returns:
+            处理后的图像
+        """
+        h, w = img.shape[:2]
+
+        # 创建坐标网格
+        x = np.arange(w)
+        y = np.arange(h)
+        xx, yy = np.meshgrid(x, y)
+
+        # 计算每个像素到圆心的距离
+        distances = np.sqrt((xx - center[0]) ** 2 + (yy - center[1]) ** 2)
+
+        # 使用 where 条件：圆形区域内保留原像素，区域外设为白色
+        result = np.where(
+            distances[:, :, np.newaxis] <= radius,  # 条件
+            img,  # 真值：原图像
+            255,  # 假值：白色
+        ).astype(np.uint8)
+
+        return result

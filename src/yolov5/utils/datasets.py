@@ -654,6 +654,7 @@ class LoadImagesAndLabels(Dataset):
                 np.ceil(np.array(shapes) * img_size / stride + pad).astype(int) * stride
             )
 
+        print(f"cache_images: {cache_images}")
         # Cache images into RAM/disk for faster training (WARNING: large datasets may exceed system resources)
         self.ims = [None] * n
         self.npy_files = [Path(f).with_suffix(".npy") for f in self.im_files]
