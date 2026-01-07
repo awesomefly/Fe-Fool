@@ -82,7 +82,8 @@ def coordinate_mapping(
     for x, y, c in pixel_list:
         x = x * physical_rows / pixel_rows
         y = y * physical_cols / pixel_cols
-        data.append([x, y, c])
+        n = get_name_by_class(c)
+        data.append([x, y, c, n])
     return data
 
 
@@ -107,7 +108,9 @@ def plane_coordinate_transform(
     return output_coordinate[0], output_coordinate[1]
 
 
-def plane_coordinate_transform2(coordinate_x, coordinate_y, translate_x, translate_y):
+def plane_coordinate_transform2(
+    coordinate_x, coordinate_y, transform_x, transform_y, transform_angle
+):
     """
     原始坐标系(x轴朝左、y轴朝上),变化后坐标系(x轴朝上、y轴朝左)
     实现 x、y 坐标轴对换后, 上移translate_x, 再右移translate_y
@@ -117,8 +120,8 @@ def plane_coordinate_transform2(coordinate_x, coordinate_y, translate_x, transla
     """
 
     # y - A (变化后x轴朝上，上移translate_x相当于减translate_x)
-    new_x = coordinate_y - translate_x
-    new_y = coordinate_x + translate_y  # x + B
+    new_x = coordinate_y + transform_y
+    new_y = coordinate_x + transform_x  # x + B
 
     return new_x, new_y
 
@@ -143,6 +146,8 @@ def play_sound(*args):
 
 def get_name_by_class(_class):
     file_path = GlobalVar.get_value("DATA_YAML_PATH")
+    if file_path is None:
+        file_path = str(ROOT) + "../yolov5/data.yaml"  # 默认
     data = YamlHandler(file_path).read_yaml()
     name = data["names"][_class]
     # LOG.debug(f"{name}")
@@ -261,18 +266,18 @@ class FunctionFitter:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.f = interp1d(self.x, self.y)
+        self.f = interp1d(self.x, self.y)  # 线性插值法纠偏
 
-    def plot(self):
+    def plot(self, title=""):
         import matplotlib.pyplot as plt
 
         xx = np.linspace(self.x.min(), self.x.max(), 1000)
         yy = self.f(xx)
-        plt.rcParams["font.sans-serif"] = ["SimHei"]
+        plt.rcParams["font.sans-serif"] = ["Arial Unicode MS", "SimHei"]
         plt.rcParams["axes.unicode_minus"] = False
         plt.plot(self.x, self.y, "o", label="误差")
         plt.plot(xx, yy, label="拟合的误差函数")
-        plt.title("关闭该窗口继续操作")
+        plt.title(f"{title} (关闭该窗口继续操作)")
         plt.legend()
         plt.show()
 
@@ -287,3 +292,442 @@ class FunctionFitter:
         x = f.x
         y = f.y
         return cls(x, y)
+
+
+import numpy as np
+from scipy.interpolate import RegularGridInterpolator
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+
+class TrilinearCalibrator:
+    """基于三线性插值的机械臂坐标误差校准类"""
+
+    def __init__(self, grid_resolution=10):
+        """
+        初始化校准模型
+
+        Parameters:
+        -----------
+        grid_resolution : int or tuple
+            网格分辨率，每个维度的采样点数
+        """
+        if isinstance(grid_resolution, int):
+            self.grid_resolution = (grid_resolution, grid_resolution, grid_resolution)
+        else:
+            self.grid_resolution = grid_resolution
+
+        self.interpolator_x = None
+        self.interpolator_y = None
+        self.interpolator_z = None
+        self.x_grid = None
+        self.y_grid = None
+        self.z_grid = None
+        self.workspace_bounds = None
+
+    def create_grid(self, target_coords):
+        """
+        根据测量数据创建插值网格
+
+        Parameters:
+        -----------
+        target_coords : array-like, shape (n, 3)
+            目标坐标数组
+
+        Returns:
+        --------
+        grid_points : tuple
+            (x_grid, y_grid, z_grid) 网格点坐标
+        """
+        # 确定工作空间边界（添加5%的边界余量）
+        mins = np.min(target_coords, axis=0)
+        maxs = np.max(target_coords, axis=0)
+        ranges = maxs - mins
+        ranges = np.maximum(ranges, 1.0)  # 确保至少1mm的范围
+        margin = 0.05 * ranges
+
+        self.workspace_bounds = {
+            "x_min": mins[0] - margin[0],
+            "x_max": maxs[0] + margin[0],
+            "y_min": mins[1] - margin[1],
+            "y_max": maxs[1] + margin[1],
+            "z_min": mins[2] - margin[2],
+            "z_max": maxs[2] + margin[2],
+        }
+
+        # 创建规则网格
+        self.x_grid = np.linspace(
+            self.workspace_bounds["x_min"],
+            self.workspace_bounds["x_max"],
+            self.grid_resolution[0],
+        )
+        self.y_grid = np.linspace(
+            self.workspace_bounds["y_min"],
+            self.workspace_bounds["y_max"],
+            self.grid_resolution[1],
+        )
+        self.z_grid = np.linspace(
+            self.workspace_bounds["z_min"],
+            self.workspace_bounds["z_max"],
+            self.grid_resolution[2],
+        )
+        # 新增：确保网格严格递增（避免数值误差导致的问题）
+        self.x_grid = np.sort(self.x_grid)
+        self.y_grid = np.sort(self.y_grid)
+        self.z_grid = np.sort(self.z_grid)
+
+        # 新增：去除重复值
+        self.x_grid = np.unique(self.x_grid)
+        self.y_grid = np.unique(self.y_grid)
+        self.z_grid = np.unique(self.z_grid)
+        return self.x_grid, self.y_grid, self.z_grid
+
+    def fit(self, target_coords, actual_coords, method="rbf"):
+        """
+        将离散测量点的误差拟合到规则网格上
+
+        Parameters:
+        -----------
+        target_coords : array-like, shape (n, 3)
+            测量的目标坐标
+        actual_coords : array-like, shape (n, 3)
+            测量的实际坐标
+        method : str
+            拟合方法 'rbf' (径向基函数) 或 'idw' (反距离权重)
+
+        Returns:
+        --------
+        error_grids : tuple
+            (error_x_grid, error_y_grid, error_z_grid)
+        """
+        from scipy.interpolate import Rbf
+
+        # 计算测量点的误差
+        errors = actual_coords - target_coords
+
+        # 创建网格点的坐标矩阵
+        X, Y, Z = np.meshgrid(self.x_grid, self.y_grid, self.z_grid, indexing="ij")
+
+        if method == "rbf":
+            # 使用径向基函数插值
+            rbf_x = Rbf(
+                target_coords[:, 0],
+                target_coords[:, 1],
+                target_coords[:, 2],
+                errors[:, 0],
+                function="multiquadric",
+                smooth=0.1,
+            )
+            rbf_y = Rbf(
+                target_coords[:, 0],
+                target_coords[:, 1],
+                target_coords[:, 2],
+                errors[:, 1],
+                function="multiquadric",
+                smooth=0.1,
+            )
+            rbf_z = Rbf(
+                target_coords[:, 0],
+                target_coords[:, 1],
+                target_coords[:, 2],
+                errors[:, 2],
+                function="multiquadric",
+                smooth=0.1,
+            )
+
+            error_x_grid = rbf_x(X, Y, Z)
+            error_y_grid = rbf_y(X, Y, Z)
+            error_z_grid = rbf_z(X, Y, Z)
+
+        elif method == "idw":
+            # 使用反距离权重插值
+            error_x_grid = self._idw_interpolation(target_coords, errors[:, 0], X, Y, Z)
+            error_y_grid = self._idw_interpolation(target_coords, errors[:, 1], X, Y, Z)
+            error_z_grid = self._idw_interpolation(target_coords, errors[:, 2], X, Y, Z)
+
+        return error_x_grid, error_y_grid, error_z_grid
+
+    def _idw_interpolation(self, points, values, X, Y, Z, power=2):
+        """反距离权重插值"""
+        grid_shape = X.shape
+        result = np.zeros(grid_shape)
+
+        X_flat = X.flatten()
+        Y_flat = Y.flatten()
+        Z_flat = Z.flatten()
+
+        for i in range(len(X_flat)):
+            # 计算到所有测量点的距离
+            distances = np.sqrt(
+                (points[:, 0] - X_flat[i]) ** 2
+                + (points[:, 1] - Y_flat[i]) ** 2
+                + (points[:, 2] - Z_flat[i]) ** 2
+            )
+
+            # 避免除零
+            distances = np.maximum(distances, 1e-10)
+
+            # 反距离权重
+            weights = 1.0 / (distances**power)
+            weights /= np.sum(weights)
+
+            # 加权平均
+            result.flat[i] = np.sum(weights * values)
+
+        return result.reshape(grid_shape)
+
+    def train(self, target_coords, actual_coords, method="rbf"):
+        """
+        使用测量数据校准模型
+
+        Parameters:
+        -----------
+        target_coords : array-like, shape (n, 3)
+            目标坐标数组
+        actual_coords : array-like, shape (n, 3)
+            实际测量坐标数组
+        method : str
+            拟合方法 'rbf' 或 'idw'
+
+        Returns:
+        --------
+        stats : dict
+            校准结果统计
+        """
+        target_coords = np.array(target_coords)
+        actual_coords = np.array(actual_coords)
+
+        print("正在创建插值网格...")
+        self.create_grid(target_coords)
+
+        print(f"正在使用 {method} 方法拟合误差场...")
+        error_x_grid, error_y_grid, error_z_grid = self.fit(
+            target_coords, actual_coords, method=method
+        )
+
+        # 创建三线性插值器
+        print("正在创建三线性插值器...")
+        self.interpolator_x = RegularGridInterpolator(
+            (self.x_grid, self.y_grid, self.z_grid),
+            error_x_grid,
+            method="linear",
+            bounds_error=False,
+            fill_value=None,  # 外推
+        )
+        self.interpolator_y = RegularGridInterpolator(
+            (self.x_grid, self.y_grid, self.z_grid),
+            error_y_grid,
+            method="linear",
+            bounds_error=False,
+            fill_value=None,
+        )
+        self.interpolator_z = RegularGridInterpolator(
+            (self.x_grid, self.y_grid, self.z_grid),
+            error_z_grid,
+            method="linear",
+            bounds_error=False,
+            fill_value=None,
+        )
+
+        # 计算校准精度
+        self.target_coords = target_coords
+        self.actual_coords = actual_coords
+        self.predicted_errors = self.predict(target_coords)
+        self.actual_errors = actual_coords - target_coords
+        self.residual_errors = self.actual_errors - self.predicted_errors
+
+        stats = {
+            "rmse": np.sqrt(np.mean(self.residual_errors**2)),
+            "max_error": np.max(np.abs(self.residual_errors)),
+            "mean_error": np.mean(np.abs(self.residual_errors), axis=0),
+            "std_error": np.std(self.residual_errors, axis=0),
+            "grid_size": self.grid_resolution,
+            "workspace_bounds": self.workspace_bounds,
+        }
+
+        print("校准完成！")
+        return stats
+
+    def predict(self, coords):
+        """
+        预测给定坐标的误差
+
+        Parameters:
+        -----------
+        coords : array-like, shape (n, 3) or (3,)
+            坐标点
+
+        Returns:
+        --------
+        errors : array-like
+            预测的误差 [dx, dy, dz]
+        """
+        if self.interpolator_x is None:
+            raise ValueError("模型未校准，请先调用 calibrate() 方法")
+
+        coords = np.atleast_2d(coords)
+
+        error_x = self.interpolator_x(coords)
+        error_y = self.interpolator_y(coords)
+        error_z = self.interpolator_z(coords)
+
+        errors = np.column_stack([error_x, error_y, error_z])
+        return errors.squeeze()
+
+    def calibrate(self, target_coords):
+        """
+        对目标坐标进行误差补偿
+
+        Parameters:
+        -----------
+        target_coords : array-like, shape (n, 3) or (3,)
+            目标坐标
+
+        Returns:
+        --------
+        compensated_coords : array-like
+            补偿后的坐标
+        """
+        target_coords = np.atleast_2d(target_coords)
+        predicted_errors = self.predict(target_coords)
+
+        # 补偿：目标坐标 + 预测误差 = 应发送坐标
+        compensated_coords = target_coords + predicted_errors
+
+        return compensated_coords.squeeze()
+
+    def save_model(self, filename):
+        """保存校准模型"""
+        np.savez(
+            filename,
+            x_grid=self.x_grid,
+            y_grid=self.y_grid,
+            z_grid=self.z_grid,
+            error_x=self.interpolator_x.values,
+            error_y=self.interpolator_y.values,
+            error_z=self.interpolator_z.values,
+            workspace_bounds=self.workspace_bounds,
+        )
+        print(f"模型已保存到 {filename}")
+
+    @classmethod
+    def load_model(cls, filename):
+        instance = cls(grid_resolution=10)
+        """加载校准模型"""
+        data = np.load(filename, allow_pickle=True)
+        instance.x_grid = data["x_grid"]
+        instance.y_grid = data["y_grid"]
+        instance.z_grid = data["z_grid"]
+        instance.workspace_bounds = data["workspace_bounds"].item()
+
+        instance.interpolator_x = RegularGridInterpolator(
+            (instance.x_grid, instance.y_grid, instance.z_grid),
+            data["error_x"],
+            method="linear",
+            bounds_error=False,
+            fill_value=None,
+        )
+        instance.interpolator_y = RegularGridInterpolator(
+            (instance.x_grid, instance.y_grid, instance.z_grid),
+            data["error_y"],
+            method="linear",
+            bounds_error=False,
+            fill_value=None,
+        )
+        instance.interpolator_z = RegularGridInterpolator(
+            (instance.x_grid, instance.y_grid, instance.z_grid),
+            data["error_z"],
+            method="linear",
+            bounds_error=False,
+            fill_value=None,
+        )
+        print(f"模型已从 {filename} 加载")
+        return instance
+
+    def plot(self):
+        """
+        可视化校准结果
+        """
+        # self.target_coords = target_coords
+        # self.actual_coords = actual_coords
+        # self.predicted_errors = self.predict(target_coords)
+        # self.actual_errors = actual_coords - target_coords
+        # self.residual_errors = self.actual_errors - self.predicted_errors
+
+        # 可视化
+        fig = plt.figure(figsize=(18, 5))
+
+        # 原始误差分布
+        ax1 = fig.add_subplot(131, projection="3d")
+        original_errors = self.actual_errors
+        error_norms = np.linalg.norm(original_errors, axis=1)
+        scatter1 = ax1.scatter(
+            self.target_coords[:, 0],
+            self.target_coords[:, 1],
+            self.target_coords[:, 2],
+            c=error_norms,
+            cmap="Reds",
+            s=30,
+        )
+        ax1.grid(True, linestyle="--", alpha=0.7, color="gray")  # 开启网格，设置样式
+        _ = [
+            ax1.text(x, y, z, f"{x:.0f},{y:.0f},{z:.0f},{e:.2f}mm", fontsize=8)
+            for (x, y, z), e in zip(self.target_coords, error_norms)
+        ]  # 为每个点添加误差标签
+
+        ax1.set_xlabel("X (mm)")
+        ax1.set_ylabel("Y (mm)")
+        ax1.set_zlabel("Z (mm)")
+        ax1.set_title("原始误差分布")
+        plt.colorbar(scatter1, ax=ax1, label="误差大小 (mm)", shrink=0.6)
+
+        # 插值预测误差
+        ax2 = fig.add_subplot(132, projection="3d")
+        predicted_errors = self.predict(self.target_coords)
+        error_norms = np.linalg.norm(predicted_errors, axis=1)
+        scatter2 = ax2.scatter(
+            self.target_coords[:, 0],
+            self.target_coords[:, 1],
+            self.target_coords[:, 2],
+            c=error_norms,
+            cmap="Blues",
+            s=30,
+        )
+        ax2.set_xlabel("X (mm)")
+        ax2.set_ylabel("Y (mm)")
+        ax2.set_zlabel("Z (mm)")
+        ax2.set_title("插值预测误差")
+
+        _ = [
+            ax2.text(x, y, z, f"{x:.0f},{y:.0f},{z:.0f},{e:.2f}mm", fontsize=8)
+            for (x, y, z), e in zip(self.target_coords, error_norms)
+        ]  # 为每个点添加误差标签
+        plt.colorbar(scatter2, ax=ax2, label="误差大小 (mm)", shrink=0.6)
+
+        # 校准后残余误差
+        ax3 = fig.add_subplot(133, projection="3d")
+        residual_errors = original_errors - predicted_errors
+        error_norms = np.linalg.norm(residual_errors, axis=1)
+        scatter3 = ax3.scatter(
+            self.target_coords[:, 0],
+            self.target_coords[:, 1],
+            self.target_coords[:, 2],
+            c=error_norms,
+            cmap="Greens",
+            s=30,
+        )
+        ax3.set_xlabel("X (mm)")
+        ax3.set_ylabel("Y (mm)")
+        ax3.set_zlabel("Z (mm)")
+        ax3.set_title("校准后残余误差")
+
+        _ = [
+            ax3.text(x, y, z, f"{x:.0f},{y:.0f},{z:.0f},{e:.2f}mm", fontsize=8)
+            for (x, y, z), e in zip(self.target_coords, error_norms)
+        ]  # 为每个点添加误差标签
+        plt.colorbar(scatter3, ax=ax3, label="误差大小 (mm)", shrink=0.6)
+
+        plt.rcParams["font.sans-serif"] = ["Arial Unicode MS", "SimHei"]
+        plt.rcParams["axes.unicode_minus"] = False
+        plt.tight_layout()
+        plt.show()

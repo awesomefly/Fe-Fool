@@ -69,7 +69,8 @@ class MainWindow:
             # detecter_process.start()
 
     def detecter_run(self):
-        root = Toplevel(self.root)
+        # root = Toplevel(self.root)
+        root = Tk()
         DetecterWindow(root, self.window_flag_bit)
 
     def button_generater(self):
@@ -85,7 +86,8 @@ class MainWindow:
             # generater_process.start()
 
     def generater_run(self):
-        root = Toplevel(self.root)
+        # root = Toplevel(self.root)
+        root = Tk()
         GeneraterWindow(root, self.window_flag_bit)
 
     def button_yolodata(self):
@@ -100,7 +102,8 @@ class MainWindow:
             # yolodata_process.start()
 
     def yolodata_run(self):
-        root = Toplevel(self.root)
+        # root = Toplevel(self.root)
+        root = Tk()
         YoloDataWindow(root, self.window_flag_bit)
 
     def button_train(self):
@@ -113,7 +116,8 @@ class MainWindow:
             self.root.after(0, self.train_run)
 
     def train_run(self):
-        root = Toplevel(self.root)
+        # root = Toplevel(self.root)
+        root = Tk()
         TrainModelWindow(root, self.window_flag_bit)
 
 

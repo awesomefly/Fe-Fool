@@ -25,6 +25,27 @@ def findport():
     return portname
 
 
+def findallport():
+    print("所有串口设备:")
+    ports = serial.tools.list_ports.comports()
+    for port in ports:
+        print(f"\n串口: {port.device}")
+        print(f"  描述: {port.description}")
+        print(f"  硬件ID: {port.hwid}")
+        print(f"  VID:PID: {port.vid}:{port.pid}")
+        print(f"  制造商: {port.manufacturer}")
+        print(f"  产品: {port.product}")
+        print(f"  序列号: {port.serial_number}")
+
+    print("\n\n筛选uArm相关设备:")
+    for port in ports:
+        # Core可能使用这些条件筛选
+        if any(x in port.device.lower() for x in ['tty.usb', 'ttyusb', 'ttyacm']):
+            print(f"匹配: {port.device}")
+        if port.vid in [0x2341]:  # Arduino VID
+            print(f"Arduino设备: {port.device}")
+
+
 class Ser(object):  # 创建关于串口的类
 
     def __init__(self, port):
@@ -90,22 +111,126 @@ class Ser(object):  # 创建关于串口的类
             self.ser.close()  # 关闭端口
 
 
+import serial.tools.list_ports
+import serial
+import time
+import sys
+
+
+def scan_all_ports():
+    """深度扫描所有可能的串口"""
+    print("=== 深度扫描串口 ===")
+
+    # 先获取PySerial能检测到的
+    known_ports = list(serial.tools.list_ports.comports())
+
+    # 尝试连接常见的端口名称
+    possible_ports = []
+
+    if sys.platform == 'win32':
+        possible_ports = [f'COM{i}' for i in range(1, 257)]
+    elif sys.platform == 'linux':
+        possible_ports = (
+            [f'/dev/ttyUSB{i}' for i in range(0, 10)]
+            + [f'/dev/ttyACM{i}' for i in range(0, 10)]
+            + [f'/dev/ttyS{i}' for i in range(0, 10)]
+        )
+    elif sys.platform == 'darwin':
+        possible_ports = [f'/dev/cu.usbserial-{i:04d}' for i in range(0, 100)] + [
+            f'/dev/cu.usbmodem{i:04d}' for i in range(1, 100)
+        ]
+
+    # print(f"全部端口: {possible_ports}")
+    found_ports = []
+
+    # 测试每个可能的端口
+    for port_name in possible_ports:
+        try:
+            # 尝试打开端口
+            ser = serial.Serial(port_name)
+            ser.close()
+            found_ports.append(port_name)
+            print(f"✓ 发现可用端口: {port_name}")
+        except (OSError, serial.SerialException):
+            continue
+
+    return found_ports
+
+
+import sys
+import subprocess
+import os
+
+
+def system_wide_port_check():
+    """系统级串口检测"""
+    print("=== 系统级串口检测 ===")
+
+    if sys.platform == 'win32':
+        # Windows
+        print("\n1. 检查设备管理器...")
+        os.system('start devmgmt.msc')
+
+        print("\n2. 命令行查看COM端口...")
+        os.system('mode')
+
+        # 使用 PowerShell
+        ps_command = '''
+        Get-WmiObject Win32_PnPEntity | Where-Object {$_.Name -match "COM"} | 
+        Select-Object Name, DeviceID, Status | Format-Table
+        '''
+        try:
+            subprocess.run(['powershell', '-Command', ps_command], shell=True)
+        except:
+            pass
+
+    elif sys.platform == 'darwin':
+        # macOS
+        print("\n1. 系统USB设备...")
+        os.system('system_profiler SPUSBDataType')
+
+        print("\n2. 串口设备...")
+        os.system('ls /dev/cu.* /dev/tty.* 2>/dev/null')
+
+        print("\n3. 内核扩展...")
+        os.system('kextstat | grep -i ftdi')
+
+    elif sys.platform == 'linux':
+        # Linux
+        print("\n1. USB设备...")
+        os.system('lsusb')
+
+        print("\n2. 串口设备...")
+        os.system('ls -la /dev/tty*')
+
+        print("\n3. 内核消息...")
+        os.system('dmesg | grep -i "tty|usb|ftdi" | tail -20')
+
+
 if __name__ == "__main__":
     # 寻找机械臂的串口
-    com = findport()
-    if com != "NULL":
-        print("\n收发信息程序已开始！")
-        action = Ser(com)  # 这里可更改连接的串口
-        t1_send = threading.Thread(target=action.send_message())
-        # 创建一个线程，运行发送信息的函数send_message()
-        t1_send.start()  # 启动线程
-        t2_receive = threading.Thread(target=action.receive_message())
-        # 创建一个线程，运行接收信息的函数receive_message()
-        t2_receive.start()  # 启动线程
-        print("\n收发信息程序已")
-    else:
-        print("找不到机械臂的串口\n")
+    # com = findport()
+    # if com != "NULL":
+    #     print("\n收发信息程序已开始！")
+    #     action = Ser(com)  # 这里可更改连接的串口
+    #     t1_send = threading.Thread(target=action.send_message())
+    #     # 创建一个线程，运行发送信息的函数send_message()
+    #     t1_send.start()  # 启动线程
+    #     t2_receive = threading.Thread(target=action.receive_message())
+    #     # 创建一个线程，运行接收信息的函数receive_message()
+    #     t2_receive.start()  # 启动线程
+    #     print("\n收发信息程序已")
+    # else:
+    #     print("找不到机械臂的串口\n")
 
-    import time
+    # import time
 
-    time.sleep(1000000)
+    # time.sleep(1000000)
+
+    # available_ports = scan_all_ports()
+    # print(f"可用端口: {available_ports}")
+
+    # 运行系统检测
+    # system_wide_port_check()
+
+    findallport()

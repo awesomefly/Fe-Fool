@@ -126,7 +126,7 @@ def resize_image():
     # input_path = (
     #     "/Users/bytedance/python/Fe-Fool/image_data/board_game/background_imgs/"
     # )
-    shape, hight, width = "circle", 52, 52
+    shape, hight, width = "circle", 64, 64
     input_path = (
         "/Users/bytedance/python/Fe-Fool/image_data/board_game/foreground_imgs/"
     )

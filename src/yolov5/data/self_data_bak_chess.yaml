@@ -1,6 +1,6 @@
 names:
-- baizi
-- heizi
+- hongbing
+- hongpao
 - heiche
 - heima
 - heixiang
@@ -13,12 +13,7 @@ names:
 - hongxiang
 - hongshi
 - hongshuai
-- hongpao
-- hongbing
-- card
-- cap
-- hand
-nc: 19
+nc: 14
 path: ../../image_data/board_game/output_yolo
 test: images/test
 train: images/train

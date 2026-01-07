@@ -1,5 +1,5 @@
 artifact_alias: latest
-batch_size: 12
+batch_size: -1
 bbox_interval: -1
 bucket: ''
 cache: null
@@ -8,7 +8,7 @@ cos_lr: false
 data: src/yolov5/data/self_data.yaml
 device: mps
 entity: null
-epochs: 5
+epochs: 30
 evolve: null
 exist_ok: false
 freeze:
@@ -25,13 +25,11 @@ nosave: false
 noval: false
 optimizer: SGD
 patience: 100
-progressbar: null
 project: src/yolov5/runs/train
 quad: false
 rect: false
 resume: false
-root: null
-save_dir: src/yolov5/runs/train/exp8
+save_dir: src/yolov5/runs/train/exp11
 save_period: -1
 single_cls: false
 sync_bn: false

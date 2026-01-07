@@ -51,7 +51,7 @@ def tk_show_img_opencv_only(panel, img, suffix=""):
         window_name = f"Camera Frame {suffix}"
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)  # 创建可调整大小的窗口
         cv2.resizeWindow(window_name, 640, 640)  # 设置窗口大小为640x480
-        #img = cv2.resize(img.copy(), (640, 640))
+        # img = cv2.resize(img.copy(), (640, 640))
         cv2.imshow(window_name, img)
 
         # 在panel上显示状态信息而不是图像
@@ -236,8 +236,8 @@ class DetecterWindow(Observable):
         elif game_mode == 3:
             self.robot_master = robot_master.GrabRobotMaster()  # 物体分类
 
-        # if self.robot_master.connect_robot() == 0:  # 连接成功
-        self.connect_flag = True
+        if self.robot_master.connect_robot() == 0:  # 连接成功
+            self.connect_flag = True
 
         self.chess_think_depth_scale.grid_forget()
         self.chess_think_depth_label.grid_forget()
@@ -312,7 +312,10 @@ class DetecterWindow(Observable):
                     )
                     return
                 device = 0
-            self.self_yolo = YoloDetecter(weights=dir, device=device)
+            self.data_path = os.path.dirname(self.path.get()) + "/../data.yaml"
+            self.self_yolo = YoloDetecter(
+                weights=dir, data=self.data_path, device=device
+            )
 
             self.path_label.grid_forget()
             self.path_entry.grid_forget()
@@ -387,12 +390,12 @@ class DetecterWindow(Observable):
                 pixel_list.sort(key=lambda x: x[2], reverse=False)
                 new_class_list = [i[2] for i in pixel_list]
                 if len(new_class_list) == 0:
-                    LOG.debug(f"目标检测结果为空:{new_class_list}")
+                    # LOG.debug(f"目标检测结果为空:{new_class_list}")
                     continue
                 is_stable = False
                 if new_class_list == last_class_list:
-                    LOG.debug(f"目标检测结果:{new_class_list}")
-                    LOG.debug(f"可信的目标检测结果:{pixel_list}")
+                    # LOG.debug(f"可信的目标检测结果:{new_class_list}")
+                    # LOG.debug(f"可信的目标检测结果:{pixel_list}")
                     is_stable = True
                 last_class_list = new_class_list
 
@@ -407,7 +410,7 @@ class DetecterWindow(Observable):
             self.close()
 
     def safe_detect(self):
-        file_path = GlobalVar.get_value("DATA_YAML_PATH")
+        file_path = self.data_path
         data = YamlHandler(file_path).read_yaml()
         name = data["names"]
         if "hand" not in name:

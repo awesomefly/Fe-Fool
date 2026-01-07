@@ -10,7 +10,7 @@ from robot import LOG
 piece = {'P': 44, 'N': 108, 'B': 23, 'R': 233, 'A': 23, 'C': 101, 'K': 2500}
 
 # 子力价值表参考“象眼”
-
+# fmt: off
 pst = {
     "P": (
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -129,6 +129,25 @@ initial = (
     '               \n'  # 110 -119
 )
 
+empty = (
+    '               \n'  # 0 -  9
+    '               \n'  # 10 - 19
+    '               \n'  # 10 - 19
+    '   .........   \n'  # 20 - 29
+    '   .........   \n'  # 40 - 49
+    '   .........   \n'  # 40 - 49
+    '   .........   \n'  # 30 - 39
+    '   .........   \n'  # 50 - 59
+    '   .........   \n'  # 70 - 79
+    '   .........   \n'  # 80 - 89
+    '   .........   \n'  # 70 - 79
+    '   .........   \n'  # 70 - 79
+    '   .........   \n'  # 90 - 99
+    '               \n'  # 100 -109
+    '               \n'  # 100 -109
+    '               \n'  # 110 -119
+)
+
 # Lists of possible moves for each piece type.
 N, E, S, W = -16, 1, 16, -1
 directions = {
@@ -145,7 +164,7 @@ MATE_LOWER = piece['K'] - (
         2 * piece['R'] + 2 * piece['N'] + 2 * piece['B'] + 2 * piece['A'] + 2 * piece['C'] + 5 * piece['P'])
 MATE_UPPER = piece['K'] + (
         2 * piece['R'] + 2 * piece['N'] + 2 * piece['B'] + 2 * piece['A'] + 2 * piece['C'] + 5 * piece['P'])
-
+# fmt: on
 # The table size is the maximum number of elements in the transposition table.
 TABLE_SIZE = 1e7
 
@@ -159,8 +178,9 @@ DRAW_TEST = True
 # Chess logic
 ###############################################################################
 
+
 class Position(namedtuple('Position', 'board score')):
-    """ A state of a chess game
+    """A state of a chess game
     board -- a 256 char representation of the board
     score -- the board evaluation
     """
@@ -176,28 +196,31 @@ class Position(namedtuple('Position', 'board score')):
                         yield (i, scanpos)
                     elif self.board[scanpos] != '.':
                         break
-            if not p.isupper(): continue
+            if not p.isupper():
+                continue
             if p == 'C':
                 for d in directions[p]:
                     cfoot = 0
                     for j in count(i + d, d):
                         q = self.board[j]
-                        if q.isspace(): break
+                        if q.isspace():
+                            break
                         if cfoot == 0 and q == '.':
                             yield (i, j)
                         elif cfoot == 0 and q != '.':
                             cfoot += 1
                         elif cfoot == 1 and q.islower():
-                            yield (i, j);
+                            yield (i, j)
                             break
                         elif cfoot == 1 and q.isupper():
-                            break;
+                            break
                 continue
             for d in directions[p]:
                 for j in count(i + d, d):
                     q = self.board[j]
                     # Stay inside the board, and off friendly pieces
-                    if q.isspace() or q.isupper(): break
+                    if q.isspace() or q.isupper():
+                        break
                     # 过河的卒/兵才能横着走
                     if p == 'P' and d in (E, W) and i > 128:
                         break
@@ -209,7 +232,8 @@ class Position(namedtuple('Position', 'board score')):
                     elif p == 'N':
                         n_diff_x = (j - i) & 15
                         if n_diff_x == 14 or n_diff_x == 2:
-                            if self.board[i + (1 if n_diff_x == 2 else -1)] != '.': break
+                            if self.board[i + (1 if n_diff_x == 2 else -1)] != '.':
+                                break
                         else:
                             if j > i and self.board[i + 16] != '.':
                                 break
@@ -220,21 +244,21 @@ class Position(namedtuple('Position', 'board score')):
                     # Move it
                     yield (i, j)
                     # Stop crawlers from sliding, and sliding after captures
-                    if p in 'PNBAK' or q.islower(): break
+                    if p in 'PNBAK' or q.islower():
+                        break
 
     def rotate(self):
-        ''' Rotates the board, preserving enpassant '''
-        return Position(
-            self.board[-2::-1].swapcase() + " ", -self.score)
+        '''Rotates the board, preserving enpassant'''
+        return Position(self.board[-2::-1].swapcase() + " ", -self.score)
 
     def nullmove(self):
-        ''' Like rotate, but clears ep and kp '''
+        '''Like rotate, but clears ep and kp'''
         return self.rotate()
 
     def move(self, move):
         i, j = move
         p, q = self.board[i], self.board[j]
-        put = lambda board, i, p: board[:i] + p + board[i + 1:]
+        put = lambda board, i, p: board[:i] + p + board[i + 1 :]
         # Copy variables and reset ep and kp
         board = self.board
         score = self.score + self.value(move)
@@ -253,6 +277,11 @@ class Position(namedtuple('Position', 'board score')):
             score += pst[q.upper()][255 - j - 1]
         return score
 
+    def update(self, i, p):
+        board = self.board[:i] + p + self.board[i + 1 :]
+        score = self.score
+        return Position(board, score)
+
 
 ###############################################################################
 # Search logic
@@ -270,9 +299,9 @@ class Searcher:
         self.nodes = 0
 
     def bound(self, pos, gamma, depth, root=True):
-        """ returns r where
-                s(pos) <= r < gamma    if gamma > s(pos)
-                gamma <= r <= s(pos)   if gamma <= s(pos)"""
+        """returns r where
+        s(pos) <= r < gamma    if gamma > s(pos)
+        gamma <= r <= s(pos)   if gamma <= s(pos)"""
         self.nodes += 1
 
         # Depth <= 0 is QSearch. Here any position is searched as deeply as is needed for
@@ -316,7 +345,9 @@ class Searcher:
             # First try not moving at all. We only do this if there is at least one major
             # piece left on the board, since otherwise zugzwangs are too dangerous.
             if depth > 0 and not root and any(c in pos.board for c in 'RNC'):
-                yield None, -self.bound(pos.nullmove(), 1 - gamma, depth - 3, root=False)
+                yield None, -self.bound(
+                    pos.nullmove(), 1 - gamma, depth - 3, root=False
+                )
             # For QSearch we have a different kind of null-move, namely we can just stop
             # and not capture anythign else.
             if depth == 0:
@@ -327,14 +358,18 @@ class Searcher:
             # will be non deterministic.
             killer = self.tp_move.get(pos)
             if killer and (depth > 0 or pos.value(killer) >= QS_LIMIT):
-                yield killer, -self.bound(pos.move(killer), 1 - gamma, depth - 1, root=False)
+                yield killer, -self.bound(
+                    pos.move(killer), 1 - gamma, depth - 1, root=False
+                )
             # Then all the other moves
             for move in sorted(pos.gen_moves(), key=pos.value, reverse=True):
                 # for val, move in sorted(((pos.value(move), move) for move in pos.gen_moves()), reverse=True):
                 # If depth == 0 we only try moves with high intrinsic score (captures and
                 # promotions). Otherwise we do all moves.
                 if depth > 0 or pos.value(move) >= QS_LIMIT:
-                    yield move, -self.bound(pos.move(move), 1 - gamma, depth - 1, root=False)
+                    yield move, -self.bound(
+                        pos.move(move), 1 - gamma, depth - 1, root=False
+                    )
 
         # Run through the moves, shortcutting when possible
         best = -MATE_UPPER
@@ -342,7 +377,8 @@ class Searcher:
             best = max(best, score)
             if best >= gamma:
                 # Clear before setting, so we always have a value
-                if len(self.tp_move) > TABLE_SIZE: self.tp_move.clear()
+                if len(self.tp_move) > TABLE_SIZE:
+                    self.tp_move.clear()
                 # Save the move for pv construction and killer heuristic
                 self.tp_move[pos] = move
                 break
@@ -358,13 +394,16 @@ class Searcher:
         # but only if depth == 1, so that's probably fair enough.
         # (Btw, at depth 1 we can also mate without realizing.)
         if best < gamma and best < 0 and depth > 0:
-            is_dead = lambda pos: any(pos.value(m) >= MATE_LOWER for m in pos.gen_moves())
+            is_dead = lambda pos: any(
+                pos.value(m) >= MATE_LOWER for m in pos.gen_moves()
+            )
             if all(is_dead(pos.move(m)) for m in pos.gen_moves()):
                 in_check = is_dead(pos.nullmove())
                 best = -MATE_UPPER if in_check else 0
 
         # Clear before setting, so we always have a value
-        if len(self.tp_score) > TABLE_SIZE: self.tp_score.clear()
+        if len(self.tp_score) > TABLE_SIZE:
+            self.tp_score.clear()
         # Table part 2
         if best >= gamma:
             self.tp_score[pos, depth, root] = Entry(best, entry.upper)
@@ -374,7 +413,7 @@ class Searcher:
         return best
 
     def search(self, pos, history=()):
-        """ Iterative deepening MTD-bi search """
+        """Iterative deepening MTD-bi search"""
         self.nodes = 0
         if DRAW_TEST:
             self.history = set(history)
@@ -401,13 +440,15 @@ class Searcher:
             self.bound(pos, lower, depth)
             # If the game hasn't finished we can retrieve our move from the
             # transposition table.
-            yield depth, self.tp_move.get(pos), self.tp_score.get((pos, depth, True),
-                                                                  Entry(-MATE_UPPER, MATE_UPPER)).lower
+            yield depth, self.tp_move.get(pos), self.tp_score.get(
+                (pos, depth, True), Entry(-MATE_UPPER, MATE_UPPER)
+            ).lower
 
 
 ###############################################################################
 # User interface
 ###############################################################################
+
 
 def parse(c):
     fil, rank = ord(c[0]) - ord('a'), int(c[1])
@@ -421,11 +462,46 @@ def render(i):
 
 def print_pos(pos):
     print()
-    uni_pieces = {'R': '车', 'N': '马', 'B': '相', 'A': '仕', 'K': '帅', 'P': '兵', 'C': '炮',
-                  'r': '俥', 'n': '傌', 'b': '象', 'a': '士', 'k': '将', 'p': '卒', 'c': '砲', '.': '．'}
+    uni_pieces = {
+        'R': '车',
+        'N': '马',
+        'B': '相',
+        'A': '仕',
+        'K': '帅',
+        'P': '兵',
+        'C': '炮',
+        'r': '俥',
+        'n': '傌',
+        'b': '象',
+        'a': '士',
+        'k': '将',
+        'p': '卒',
+        'c': '砲',
+        '.': '．',
+    }
     for i, row in enumerate(pos.board.split()):
         print(' ', 9 - i, ''.join(uni_pieces.get(p, p) for p in row))
     print('    ａｂｃｄｅｆｇｈｉ\n\n')
+
+
+def name2letter(name):
+    pieces = {
+        'hongbing': 'P',
+        'hongpao': 'C',
+        'hongche': 'R',
+        'hongma': 'N',
+        'hongxiang': 'B',
+        'hongshi': 'A',
+        'hongshuai': 'K',
+        'heixiang': 'b',
+        'heishi': 'a',
+        'heijiang': 'k',
+        'heipao': 'c',
+        'heibing': 'p',
+        'heiche': 'r',
+        'heima': 'n',
+    }
+    return pieces[name]
 
 
 # -1:错误输入
@@ -438,18 +514,36 @@ POS_LIST = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']
 from robot.tools import play_sound_thread
 
 
-class Chess():
+class Chess:
     def __init__(self, think_depth=3):
-        self.hist = [Position(initial, 0)]
+        self.hist = [Position(empty, 0)]
         self.searcher = Searcher()
         self.count = 0
         self.think_depth = think_depth
 
+    def set_current_board(self, pos_list):
+        pos_str_list = []
+        name_list = []
+        for pos in pos_list:
+            pos_str_list.append(str(POS_LIST[pos[0]]) + str(pos[1]))  # pos2str
+            name_list.append(pos[3])
+        pos_idx_list = [parse(pos_str) for pos_str in pos_str_list]  # pos2idx
+        for i, idx in enumerate(pos_idx_list):
+            self.hist[-1] = self.hist[-1].update(idx, name2letter(name_list[i]))
+
     def pos_to_str(self, pick_pos, down_pos):
-        return str(POS_LIST[pick_pos[0]]) + str(pick_pos[1]) + str(POS_LIST[down_pos[0]]) + str(down_pos[1])
+        return (
+            str(POS_LIST[pick_pos[0]])
+            + str(pick_pos[1])
+            + str(POS_LIST[down_pos[0]])
+            + str(down_pos[1])
+        )
 
     def str_to_pos(self, str_pos):
-        return (POS_LIST.index(str_pos[0]), int(str_pos[1])), (POS_LIST.index(str_pos[2]), int(str_pos[3]))
+        return (POS_LIST.index(str_pos[0]), int(str_pos[1])), (
+            POS_LIST.index(str_pos[2]),
+            int(str_pos[3]),
+        )
 
     def player_down(self, pick_pos, down_pos):
         str_pos = self.pos_to_str(pick_pos, down_pos)

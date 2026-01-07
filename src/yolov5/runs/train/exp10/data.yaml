@@ -1,19 +1,7 @@
 names:
-- hongbing
-- hongpao
-- heiche
-- heima
-- heixiang
-- heishi
-- heijiang
-- heipao
-- heibing
-- hongche
-- hongma
-- hongxiang
-- hongshi
-- hongshuai
-nc: 14
+- heizi
+- baizi
+nc: 2
 path: ../../image_data/board_game/output_yolo
 test: images/test
 train: images/train

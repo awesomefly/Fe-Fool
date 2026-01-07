@@ -296,9 +296,11 @@ class YoloDataProducer(object):
         # foreground_list = foreground_list[0 : random.randint(1, len(foreground_list))]
         length = len(foreground_list)
         step = random.randint(int(length / 3), int(length / 2))
+        if step <= 0:
+            step = length
         for i in range(0, len(foreground_list), step):
             img_background = ori_img_background.copy()
-            
+
             start_index = 0
             random_point_list = []  # 放置点信息
             for filename in foreground_list[i : i + step]:
