@@ -109,20 +109,25 @@ def plane_coordinate_transform(
 
 
 def plane_coordinate_transform2(
-    coordinate_x, coordinate_y, transform_x, transform_y, transform_angle
+    arm, coordinate_x, coordinate_y, transform_x, transform_y
 ):
     """
-    原始坐标系(x轴朝左、y轴朝上),变化后坐标系(x轴朝上、y轴朝左)
-    实现 x、y 坐标轴对换后, 上移translate_x, 再右移translate_y
+    坐标系转换
 
     Returns:
         tuple: 变换后的 (x', y') 坐标
     """
-
-    # y - A (变化后x轴朝上，上移translate_x相当于减translate_x)
-    new_x = coordinate_y + transform_y
-    new_y = coordinate_x + transform_x  # x + B
-
+    if arm == 'openarm':
+        # 原始坐标系(x轴朝左、y轴朝上),变化后坐标系(x轴朝上、y轴朝左)
+        # 实现 x、y 坐标轴对换后, 上移translate_y, 再右移translate_x
+        # y - A (变化后x轴朝上，上移translate_x相当于减translate_x)
+        new_x = coordinate_y - transform_y
+        new_y = coordinate_x + transform_x  # x + B
+    elif arm == 'uarm':
+        # 原始坐标系(x轴朝左、y轴朝上),变化后坐标系(x轴朝上、y轴朝下)
+        # 实现 x 轴不变、y 坐标轴变为反向后, 上移translate_y, 再右移translate_x
+        new_x = coordinate_x + transform_x
+        new_y = transform_y - coordinate_y
     return new_x, new_y
 
 

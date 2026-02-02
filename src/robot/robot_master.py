@@ -43,19 +43,24 @@ LENGTH_ERR_GOBANG = 21  # 五子棋盘内外边框间距(长度方向)
 ROW_GOBANG = 13  # 五子棋盘行数(宽度方向)
 COLUMN_GOBANG = 13  # 五子棋盘列数(长度方向)
 
-TRANSFORM_X_GOBANG = 75  # 棋盘距离机械臂原点X轴的平移
+ARM_GOBANG_DISTANCE = 75  # 棋盘距离机械臂原点的距离
 
 # 象棋物理参数
 WIDTH_CHESS = 200  # 象棋盘总宽度
 LENGTH_CHESS = 200  # 象棋盘总长度
 HIGH_CHESS = 19  # 象棋棋盘+棋子高度
 WIDTH_ERR_CHESS = 14  # 象棋盘内外边框间距(宽度方向)
-LENGTH_ERR_CHESS = 13  # 象棋盘内外边框间距(长度方向)
+LENGTH_ERR_CHESS = 14  # 象棋盘内外边框间距(长度方向)
 
-CHESS_DUMP_COORDINATE = [80, 100, 50]  # 象棋吃子后放置的固定点
-START_POINT_CHESS = [-160, 30, 120]  # 象棋模式固定起始点(Y要大于 30 避免补偿后小于 0)
+CHESS_DUMP_COORDINATE = [80, 100, 19]  # 象棋吃子后放置的固定点
+START_POINT_CHESS = [
+    100,
+    0,
+    20,
+]  # openarm=[-160, 30, 120]  # 象棋模式固定起始点(Y要大于 30 避免补偿后小于 0)
 
-TRANSFORM_X_CHESS = 122  # 棋盘到机械臂原点的距离（棋盘边的Y轴值）
+ARM_NAME = "uarm"  # 机械臂名称
+ARM_CHESS_DISTANCE = 136  # 棋盘到机械臂原点的距离 openarm 122mm、uarm 136mm
 
 # 其他公共参数
 ERROR_NUM = 9999  # 一个较大的值来做为错误值
@@ -102,7 +107,7 @@ class RobotMaster(Observer):
 
     # window_detection发布过来的消息在这里处理
     def receive_message(self, topic, message):
-        LOG.debug(f"received message:{topic}, {message}")
+        # LOG.debug(f"received message:{topic}, {message}")
         if topic == "safety" and self.is_start():
             if message[0] == "pause":
                 self.pause()
@@ -368,7 +373,7 @@ class GobangRobotMaster(BoardGamesRobotMaster):
         coordinate_x, coordinate_y = plane_coordinate_transform(
             coordinate_x=coordinate[0],
             coordinate_y=coordinate[1],
-            transform_x=TRANSFORM_X_GOBANG,
+            transform_x=ARM_GOBANG_DISTANCE,
             transform_y=-self.length / 2,
             transform_angle=0,
         )
@@ -457,7 +462,7 @@ class GobangRobotMaster(BoardGamesRobotMaster):
         ai_down_coordinate_x, ai_down_coordinate_y = plane_coordinate_transform2(
             coordinate_x=ai_down_coordinate_x,
             coordinate_y=ai_down_coordinate_y,
-            transform_x=TRANSFORM_X_GOBANG,
+            transform_x=ARM_GOBANG_DISTANCE,
             transform_y=-self.length / 2,
             transform_angle=0,
         )
@@ -628,7 +633,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         coordinate_x, coordinate_y = plane_coordinate_transform(
             coordinate_x=coordinate[0],
             coordinate_y=coordinate[1],
-            transform_x=TRANSFORM_X_CHESS,
+            transform_x=ARM_CHESS_DISTANCE,
             transform_y=-self.length / 2,
             transform_angle=0,
         )
@@ -644,7 +649,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
             pixel_list, self.width, self.length, img_shape[0], img_shape[1]
         )
         self.all_chess_list = coordinate_list
-        LOG.debug(f"棋盘坐标coordinate_list:{coordinate_list}")
+        # LOG.debug(f"棋盘坐标coordinate_list:{coordinate_list}")
 
         if not self.check_start(coordinate_list):
             LOG.debug(f"has not start! coordinate_list:{coordinate_list}")
@@ -655,8 +660,8 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         # if not self.check_some_wrong(robot_pos_set):
         #     LOG.debug(f"has some wrong! robot_pos_set:{robot_pos_set}")
         #     return
-        LOG.debug(f"棋子历史位置 player_history_set:{self.history_set}")
-        LOG.debug(f"当前玩家棋子位置 player_pos_set:{player_pos_set}")
+        # LOG.info(f"棋子历史位置 player_history_set:{self.history_set}")
+        # LOG.info(f"当前玩家棋子位置 player_pos_set:{player_pos_set}")
 
         if time.time() - self.last_down_time > self.overtime:
             self.last_down_time = time.time()
@@ -753,44 +758,49 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         is_eat,
     ):
         # 这里算出来的是棋盘中交点的坐标，应该去取棋子的实际坐标
-        (
-            ai_pick_coordinate_x,
-            ai_pick_coordinate_y,
-            ai_down_coordinate_x,
-            ai_down_coordinate_y,
-        ) = self.find_real_coordinate(
-            ai_pick_coordinate_x,
-            ai_pick_coordinate_y,
-            ai_down_coordinate_x,
-            ai_down_coordinate_y,
-            is_eat,
-        )
+        LOG.debug(f"pos coordinate: {ai_pick_coordinate_x}, {ai_pick_coordinate_y}")
+        # 图片识别计算到的位置不是很稳定，棋盘点位位置相对固定
+        # (
+        #     ai_pick_coordinate_x,
+        #     ai_pick_coordinate_y,
+        #     ai_down_coordinate_x,
+        #     ai_down_coordinate_y,
+        # ) = self.find_real_coordinate(
+        #     ai_pick_coordinate_x,
+        #     ai_pick_coordinate_y,
+        #     ai_down_coordinate_x,
+        #     ai_down_coordinate_y,
+        #     is_eat,
+        # )
+        LOG.debug(f"real coordinate: {ai_pick_coordinate_x}, {ai_pick_coordinate_y}")
         if ai_pick_coordinate_x == 0:
             play_sound("chess_wrong")
             return
         # 棋盘坐标转机械臂坐标（原点不同，需要坐标系转换）
         ai_pick_coordinate_x, ai_pick_coordinate_y = plane_coordinate_transform2(
+            arm=ARM_NAME,
             coordinate_x=ai_pick_coordinate_x,
             coordinate_y=ai_pick_coordinate_y,
-            transform_x=TRANSFORM_X_CHESS,
-            transform_y=-self.length / 2,
-            transform_angle=0,
+            transform_x=ARM_CHESS_DISTANCE,
+            transform_y=self.length / 2,
         )
 
         ai_down_coordinate_x, ai_down_coordinate_y = plane_coordinate_transform2(
+            arm=ARM_NAME,
             coordinate_x=ai_down_coordinate_x,
             coordinate_y=ai_down_coordinate_y,
-            transform_x=TRANSFORM_X_CHESS,
-            transform_y=-self.length / 2,
-            transform_angle=0,
+            transform_x=ARM_CHESS_DISTANCE,
+            transform_y=self.length / 2,
         )
 
-        coordinate_z = -(130 - HIGH_CHESS - 61)  # 原点高度-棋盘高度-吸嘴高度
+        # coordinate_z = -(130 - HIGH_CHESS - 61)  # openarm 原点高度-棋盘高度-吸嘴高度
+        coordinate_z = HIGH_CHESS  # uarm 原点高度-棋盘高度-吸嘴高度
+
         if is_eat:  # 需要吃子
             # 随机范围放置，防止堆太高
             random_dump_coordinate = [
-                CHESS_DUMP_COORDINATE[0] + random.randint(-25, 25),
-                CHESS_DUMP_COORDINATE[1] + random.randint(-25, 25),
+                CHESS_DUMP_COORDINATE[0] + random.randint(-10, 10),
+                CHESS_DUMP_COORDINATE[1] + random.randint(-10, 10),
                 CHESS_DUMP_COORDINATE[2],
             ]
             self.robot_move_to(  # 执行实际运动控制
@@ -811,10 +821,10 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         ai_down_coordinate_y,
         is_eat,
     ):
+        # 在所有棋盘中查找实际棋子位置坐标
         if len(self.all_chess_list) == 0:
             return 0, 0, 0, 0
         if is_eat:
-            # 在所有棋盘中找到距离AI计算的落子坐标最近的交叉点
             index = self.find_min_dis_index(
                 self.all_chess_list, ai_down_coordinate_x, ai_down_coordinate_y
             )

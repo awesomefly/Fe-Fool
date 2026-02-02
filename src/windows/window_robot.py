@@ -30,57 +30,78 @@ ENGINE_NUM = 3
 TOOL_LENGTH = 69  # 工具长度，洗泵延长距离为 69mm
 INIT_ENGINE_Y = INIT_ENGINE + TOOL_LENGTH  # 初始引擎Y轴位置
 
-MANUAL_COMPENSATE_X = -1
+# for uarm
+MANUAL_COMPENSATE_X = 0
 MANUAL_COMPENSATE_Y = 0
-MANUAL_COMPENSATE_Z = -5
+MANUAL_COMPENSATE_Z = 0
 
-POINT_NUM = 18  # 设置校准点位数量
+POINT_NUM = 9  # 设置校准点位数量
 NINE_POINT = [
-    [-100, 149, 27],  # 台面 96mm
-    [0, 149, 27],
-    [100, 149, 27],
-    [100, 199, 27],
-    [0, 199, 27],
-    [-100, 199, 27],
-    [-100, 224, 27],
-    [0, 224, 27],
-    [100, 224, 27],
-    [-100, 149, -70],  # 桌面，底座平齐
-    [0, 149, -70],
-    [100, 149, -70],
-    [100, 199, -70],
-    [0, 199, -70],
-    [-100, 199, -70],
-    [-100, 224, -70],
-    [0, 224, -70],
-    [100, 224, -70],
+    [150, -85, 19],
+    [150, 0, 19],
+    [150, 85, 19],
+    [236, 85, 19],
+    [236, 0, 19],
+    [236, -85, 19],
+    [323, -85, 19],
+    [323, 0, 19],
+    [323, 85, 19],
 ]
+TEST_NINE_POINT = NINE_POINT
 
-TEST_NINE_POINT = [
-    # [-100, 149, -70],
-    # [0, 149, -70],
-    # [100, 149, -70],
-    # [100, 199, -70],
-    # [0, 199, -70],
-    # [-100, 199, -70],
-    # [-100, 224, -70],
-    # [0, 224, -70],
-    # [100, 224, -70],
-    [-100, 149, -50],  # 原点高度130-棋盘和棋子高度19-吸嘴长度61
-    [0, 149, -50],
-    [100, 149, -50],
-    [100, 199, -50],
-    [0, 199, -50],
-    [-100, 199, -50],
-    [-100, 224, -50],
-    [0, 224, -50],
-    [100, 224, -50],
-]
+# for openarm
+# MANUAL_COMPENSATE_X = -1
+# MANUAL_COMPENSATE_Y = 0
+# MANUAL_COMPENSATE_Z = -5
+
+# POINT_NUM = 18  # 设置校准点位数量
+# NINE_POINT = [
+#     [-100, 149, 27],  # 台面 96mm
+#     [0, 149, 27],
+#     [100, 149, 27],
+#     [100, 199, 27],
+#     [0, 199, 27],
+#     [-100, 199, 27],
+#     [-100, 224, 27],
+#     [0, 224, 27],
+#     [100, 224, 27],
+#     [-100, 149, -70],  # 桌面，底座平齐
+#     [0, 149, -70],
+#     [100, 149, -70],
+#     [100, 199, -70],
+#     [0, 199, -70],
+#     [-100, 199, -70],
+#     [-100, 224, -70],
+#     [0, 224, -70],
+#     [100, 224, -70],
+# ]
+
+# TEST_NINE_POINT = [
+#     # [-100, 149, -70],
+#     # [0, 149, -70],
+#     # [100, 149, -70],
+#     # [100, 199, -70],
+#     # [0, 199, -70],
+#     # [-100, 199, -70],
+#     # [-100, 224, -70],
+#     # [0, 224, -70],
+#     # [100, 224, -70],
+#     [-100, 149, -50],  # 原点高度130-棋盘和棋子高度19-吸嘴长度61
+#     [0, 149, -50],
+#     [100, 149, -50],
+#     [100, 199, -50],
+#     [0, 199, -50],
+#     [-100, 199, -50],
+#     [-100, 224, -50],
+#     [0, 224, -50],
+#     [100, 224, -50],
+# ]
 
 
 class RobotSerialPortWindow:
     def __init__(self, window_flag_bit=None):
         self.serial = serial.Serial()
+        self.arm = "uarm"
         self.device = None
         self.baudrate = 115200
         self.encoding = "utf-8"
@@ -244,23 +265,25 @@ class RobotSerialPortWindow:
         optionframebottom.propagate(False)
         optionframebottom.pack(anchor="nw", side="bottom")
 
+        # arm type
+        label0 = tk.Label(optionframeleft, text="机械臂", width=5, height=1)
+        label0.pack(pady=2)
+        self.armselect = ttk.Combobox(optionframeright, width=15, height=8)
+        self.armselect.bind("<<ComboboxSelected>>", self.armselectcmd)
+        self.armselect["value"] = ["uarm", "openarm"]
+        self.armselect.current(0)
+        self.armselect.pack()
+
         # serial
-        spacelabel = tk.Label(optionframeleft, width=5, height=1)
-        spacelabel.pack()
         label1 = tk.Label(optionframeleft, text="端口号", width=5, height=1)
-        label1.pack()
-        spacelabel = tk.Label(optionframeright, width=5, height=1)
-        spacelabel.pack()
+        label1.pack(pady=2)
         self.serialselect = ttk.Combobox(optionframeright, width=15, height=5)
         self.serialselect.bind("<<ComboboxSelected>>", self.serialselectcmd)
         self.serialselect.pack()
+
         # baudrate
-        spacelabel = tk.Label(optionframeleft, width=5, height=1)
-        spacelabel.pack()
         label2 = tk.Label(optionframeleft, text="波特率", width=5, height=1)
-        label2.pack()
-        spacelabel = tk.Label(optionframeright, width=5, height=1)
-        spacelabel.pack()
+        label2.pack(pady=2)
         self.baudrateselect = ttk.Combobox(optionframeright, width=15, height=8)
         self.baudrateselect.bind("<<ComboboxSelected>>", self.baudrateselectcmd)
         self.baudrateselect["value"] = [
@@ -285,34 +308,22 @@ class RobotSerialPortWindow:
         self.baudrateselect.current(6)
         self.baudrateselect.pack()
         # cal bit
-        spacelabel = tk.Label(optionframeleft, width=5, height=1)
-        spacelabel.pack()
         label3 = tk.Label(optionframeleft, text="校验位", width=5, height=1)
-        label3.pack()
-        spacelabel = tk.Label(optionframeright, width=5, height=1)
-        spacelabel.pack()
+        label3.pack(pady=2)
         self.calbitselect = ttk.Combobox(optionframeright, width=15, height=8)
         self.calbitselect["value"] = ["无校验", "奇校验", "偶校验"]
         self.calbitselect.current(0)
         self.calbitselect.pack()
         # data bit
-        spacelabel = tk.Label(optionframeleft, width=5, height=1)
-        spacelabel.pack()
         label4 = tk.Label(optionframeleft, text="数据位", width=5, height=1)
-        label4.pack()
-        spacelabel = tk.Label(optionframeright, width=5, height=1)
-        spacelabel.pack()
+        label4.pack(pady=2)
         self.databitselect = ttk.Combobox(optionframeright, width=15, height=8)
         self.databitselect["value"] = [8, 7, 6, 5]
         self.databitselect.current(0)
         self.databitselect.pack()
         # stop bit
-        spacelabel = tk.Label(optionframeleft, width=5, height=1)
-        spacelabel.pack()
         label5 = tk.Label(optionframeleft, text="停止位", width=5, height=1)
-        label5.pack()
-        spacelabel = tk.Label(optionframeright, width=5, height=1)
-        spacelabel.pack()
+        label5.pack(pady=2)
         self.stopbitselect = ttk.Combobox(optionframeright, width=15, height=8)
         self.stopbitselect["value"] = [1]
         self.stopbitselect.current(0)
@@ -443,18 +454,20 @@ class RobotSerialPortWindow:
             self.calcparambutton["text"] = "停止校准"
             self.paramwindow = tk.Toplevel(self.face)
             self.paramwindow.title("机械臂内参校准")
-            self.paramwindow.geometry("400x600")
+            self.paramwindow.geometry("960x640")
             self.paramwindow.protocol("WM_DELETE_WINDOW", self.close_paramwindow)
 
             self.point_count = 0
 
             zerobutton = tk.Button(
-                self.paramwindow, text="回到原点(0,189,120)", command=self.zerobuttoncmd
+                self.paramwindow,
+                text="回到初始位置(0,189,120)",
+                command=self.zerobuttoncmd,
             )
             zerobutton.grid(row=0, column=1, padx=20, pady=20, sticky=("e", "w"))
 
             initposbutton = tk.Button(
-                self.paramwindow, text="原点查找", command=self.initposbuttoncmd
+                self.paramwindow, text="复位/位置查找", command=self.initposbuttoncmd
             )
             initposbutton.grid(row=0, column=0, padx=20, pady=20, sticky=("e", "w"))
 
@@ -611,6 +624,7 @@ class RobotSerialPortWindow:
     def do_first_point(self, need_fit=False):
         self.stop_calc()
         if self.connecting:
+            LOG.info(f"start do_first_point, need_fit: {need_fit}")
             self.point_count = 0
             offset = NINE_POINT[self.point_count]
             self.move(offset, need_fit=need_fit)
@@ -757,18 +771,18 @@ class RobotSerialPortWindow:
         self.send_last_send()
 
     def initposbuttoncmd(self):
-        data = "G28\r"
-        self.serial.write(data.encode(self.encoding))
-        self.last_engine_list = [0, INIT_ENGINE_Y, INIT_ENGINE]  # Y轴含工具延长部分
-        # self.send_last_send()
+        self.reset()
 
     def curposbuttoncmd(self):
-        data = "M114\r"
-        self.serial.write(data.encode(self.encoding))
+        self.position()
 
     def baudrateselectcmd(self, *args):
         self.baudrate = int(self.baudrateselect.get())
         self.serial.baudrate = self.baudrate
+        pass
+
+    def armselectcmd(self, *args):
+        self.arm = self.armselect.get()
         pass
 
     def serialselectcmd(self, *args):
@@ -851,6 +865,7 @@ class RobotSerialPortWindow:
 
     def receive(self):
         hexdisplay = False
+        text = ""
         while self.connecting:
             try:
                 nchar = self.serial.inWaiting()
@@ -861,11 +876,13 @@ class RobotSerialPortWindow:
                 self.openbutton["text"] = "连接机械臂"
                 pass
             if nchar:
-                LOG.debug(f"begin read")
+                # LOG.debug(f"begin read")
                 data = self.serial.read(nchar)
                 LOG.debug(f"serial read data: {data}, len: {nchar}")
 
-                text = data.decode(self.encoding)
+                text += data.decode(self.encoding)
+                if text.count("\n") == 0:  # 未接收完整信息
+                    continue
                 if hexdisplay == True:
                     convert = "0123456789ABCDEF"
                     text = ""
@@ -876,14 +893,11 @@ class RobotSerialPortWindow:
                 self.display_queue.put(lambda: self._update_ui_text(self.rectext, text))
                 # self.root.after_idle(self._update_ui_text, text)
 
-                if (
-                    self.working__flag
-                    and data is not None
-                    and data.decode("utf-8").count("ok")
-                ):
+                if self.working__flag and text.count("ok"):
                     LOG.debug(f"command_completed_event.set")
                     self.command_completed_event.set()  # 触发事件
-            time.sleep(0.01)
+                text = ""
+            time.sleep(0.1)
             pass
         pass
 
@@ -1199,16 +1213,35 @@ class RobotSerialPortWindow:
     def reset(self):
         if not self.serial.isOpen():
             return
-
         # Default ABSOLUTE MODE
-        data = "G28 \r"
+        if self.arm == "openarm":
+            # 机械臂位置查找
+            data = "G28\r"
+        elif self.arm == "uarm":
+            # M2400 S0 : 常规模式 末端执行器 : 吸盘
+            # uarm 通过传感器可以知道机械臂位置，无需复位
+            data = "M2400 S0\n"
+        self.serial.write(data.encode(self.encoding))
+
+    def position(self):
+        if not self.serial.isOpen():
+            return
+        if self.arm == "openarm":
+            data = "M114\r"
+        elif self.arm == "uarm":
+            data = "P2220\n"
+
         self.serial.write(data.encode(self.encoding))
 
     # 气泵吸
     def suckup(self):
         if not self.serial.isOpen():
             return
-        data = "M22 \r"
+        if self.arm == "openarm":
+            data = "M22 \r"
+        elif self.arm == "uarm":
+            data = "M2231 V1 \r"
+
         # data = "M5\r" #scaral机器人
         self.serial.write(data.encode(self.encoding))
 
@@ -1216,35 +1249,50 @@ class RobotSerialPortWindow:
     def suckdown(self):
         if not self.serial.isOpen():
             return
-        data = "M21 \r"
-        # data = "M3\r" #scaral机器人
+        if self.arm == "openarm":
+            data = "M21 \r"
+        elif self.arm == "uarm":
+            data = "M2231 V0 \r"
         self.serial.write(data.encode(self.encoding))
 
     #  gripper on
     def gripperon(self):
         if not self.serial.isOpen():
             return
-        data = "M3 \r"
+        if self.arm == "openarm":
+            data = "M3 \r"
+        elif self.arm == "uarm":
+            data = "M2232 V1 \r"
         self.serial.write(data.encode(self.encoding))
 
     # gripper off
     def gripperoff(self):
         if not self.serial.isOpen():
             return
-        data = "M5 \r"
+        if self.arm == "openarm":
+            data = "M5 \r"
+        elif self.arm == "uarm":
+            data = "M2232 V0 \r"
         self.serial.write(data.encode(self.encoding))
 
     # 12V直流输出
     def dc_level_on(self):
         if not self.serial.isOpen():
             return
-        data = "M31 \r"
+        if self.arm == "openarm":
+            data = "M31 \r"
+        elif self.arm == "uarm":
+            data = "M2240 N1 V1 \r"  # 未测试
+
         self.serial.write(data.encode(self.encoding))
 
     def dc_level_off(self):
         if not self.serial.isOpen():
             return
-        data = "M32 \r"  # 四轴
+        if self.arm == "openarm":
+            data = "M32 \r"
+        elif self.arm == "uarm":
+            data = "M2240 N1 V0 \r"  # 未测试
         self.serial.write(data.encode(self.encoding))
 
     def pause(self):
@@ -1263,7 +1311,7 @@ class RobotSerialPortWindow:
     def move(self, offset, t=50, need_fit=True):
         # Scara机械臂的运动逆解是下位机完成的，这里直接发送坐标即可
         engine0, engine1, engine2 = offset
-        if need_fit:
+        if need_fit:  # and self.arm == "openarm":
             engine0, engine1, engine2 = self.calibrator.calibrate(offset)
             engine0 = engine0 + MANUAL_COMPENSATE_X
             engine1 = engine1 + MANUAL_COMPENSATE_Y
@@ -1278,7 +1326,7 @@ class RobotSerialPortWindow:
 
         # SCARA机械臂直接发送坐标
         data = (
-            "G1"
+            "G0"
             + " X"
             + str(engine0)
             + " Y"
@@ -1290,6 +1338,7 @@ class RobotSerialPortWindow:
             + "\r"
         )
         self.serial.write(data.encode(self.encoding))
+        LOG.debug(f"send data: {data}")
         self.last_engine_list = [engine0, engine1, engine2]
 
     def working(self):
