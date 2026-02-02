@@ -3,6 +3,4 @@ venv/
 .idea/
 dist/
 **/__pycache__/
-image_data/board_game/foreground_imgs/output/
-image_data/board_game/background_imgs/output/
-image_data/board_game/output_yolo/
+image_data/
