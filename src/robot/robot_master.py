@@ -644,7 +644,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         return has_ik1 & has_ik2
 
     def work(self, pixel_list, img_shape):
-        # 实现像素坐标系到为棋盘物理坐标
+        # 实现像素坐标系到为棋盘物理坐标(像素距离转换为物理距离)
         coordinate_list = coordinate_mapping(
             pixel_list, self.width, self.length, img_shape[0], img_shape[1]
         )
