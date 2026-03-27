@@ -8,12 +8,15 @@ from tkinter import ttk, filedialog
 from PIL import Image, ImageTk
 import numpy as np
 import threading
+import json
+
 
 from yolov5.detect_self import YoloDetecter
 from robot import robot_master, LOG, ROOT
 from robot.robot_master import Observable
 from robot.tools import get_cameras, YamlHandler, GlobalVar
-from windows.image_find_focus import FocusFinder
+from image.image_find_focus import FocusFinder
+from llm.multimodal_recognition_ark import MultimodalRecognizerArk
 
 DEFAULT_MODEL_PATH = ROOT + "../yolov5/runs/train/exp9/weights/best.pt"
 
@@ -93,6 +96,46 @@ class DetecterWindow(Observable):
         self.panel.grid(row=0, column=1, sticky=("e", "w"))
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
+        # 添加模型类型选择
+        self.model_type = tkinter.StringVar(self.root)
+        self.model_type.set("yolo")  # 默认选择YOLO
+
+        self.model_type_label = tkinter.Label(self.root, text="模型类型:")
+        self.model_type_label.grid(row=0, column=0)
+
+        self.yolo_radio = tkinter.Radiobutton(
+            self.root,
+            text="YOLO",
+            variable=self.model_type,
+            value="yolo",
+            command=self.toggle_model_config,
+        )
+        self.yolo_radio.grid(row=0, column=1)
+
+        self.llm_radio = tkinter.Radiobutton(
+            self.root,
+            text="LLM",
+            variable=self.model_type,
+            value="llm",
+            command=self.toggle_model_config,
+        )
+        self.llm_radio.grid(row=0, column=2)
+
+        # LLM配置
+        self.api_key = tkinter.StringVar(self.root)
+        self.api_endpoint = tkinter.StringVar(self.root)
+
+        self.api_key_label = tkinter.Label(self.root, text="API密钥:")
+        self.api_key_entry = tkinter.Entry(
+            self.root, textvariable=self.api_key, show="*"
+        )
+
+        self.api_endpoint_label = tkinter.Label(self.root, text="API接口地址:")
+        self.api_endpoint_entry = tkinter.Entry(
+            self.root, textvariable=self.api_endpoint
+        )
+
+        # YOLO相关配置
         self.path = tkinter.StringVar(self.root)
         self.path.set(os.path.abspath(DEFAULT_MODEL_PATH))
 
@@ -158,6 +201,36 @@ class DetecterWindow(Observable):
 
         # 工作类型 0：未选择 1：五子棋 2：象棋 3：物体分类
         self.game_mode = tkinter.IntVar(self.root)
+
+    def toggle_model_config(self):
+        # 根据选择的模型类型显示相应的配置界面
+        if self.model_type.get() == "yolo":
+            # 显示YOLO配置，隐藏LLM配置
+            self.path_label.grid(row=1, column=0)
+            self.path_entry.grid(row=1, column=1, ipadx=200)
+            self.patth_button.grid(row=1, column=2)
+            self.label1.grid(row=2, column=0)
+            self.inp1.grid(row=2, column=1)
+
+            # 隐藏LLM配置
+            self.api_key_label.grid_forget()
+            self.api_key_entry.grid_forget()
+            self.api_endpoint_label.grid_forget()
+            self.api_endpoint_entry.grid_forget()
+
+        elif self.model_type.get() == "llm":
+            # 隐藏YOLO配置
+            self.path_label.grid_forget()
+            self.path_entry.grid_forget()
+            self.patth_button.grid_forget()
+            self.label1.grid_forget()
+            self.inp1.grid_forget()
+
+            # 显示LLM配置
+            self.api_key_label.grid(row=1, column=0)
+            self.api_key_entry.grid(row=1, column=1, ipadx=200)
+            self.api_endpoint_label.grid(row=2, column=0)
+            self.api_endpoint_entry.grid(row=2, column=1, ipadx=200)
 
     def select_camera(self, *args):
         self.camera_label.grid_forget()
@@ -247,6 +320,7 @@ class DetecterWindow(Observable):
 
         # 注册观察者，消费视觉识别结果
         self.register(self.robot_master, "yolo_res")
+        self.register(self.robot_master, "llm_res")
         self.register(self.robot_master, "safety")
         return True
         # else:
@@ -254,6 +328,7 @@ class DetecterWindow(Observable):
 
     def disconnect_robot(self):
         self.unregister(self.robot_master, "yolo_res")
+        self.unregister(self.robot_master, "llm_res")
         self.unregister(self.robot_master, "safety")
         self.connect_flag = False
         self.robot_master.close()
@@ -262,6 +337,9 @@ class DetecterWindow(Observable):
         self.radio_button_gobang.grid(row=5, column=0)
         self.radio_button_chess.grid(row=5, column=1)
         self.radio_button_grab.grid(row=5, column=2)
+
+        # 恢复模型选择配置显示
+        self.toggle_model_config()
 
     def start_detect_cmd(self):
         self.detect_button.grid_forget()
@@ -289,46 +367,79 @@ class DetecterWindow(Observable):
         self.detect()
 
     def load_model(self):
-        dir = self.path.get()
-        if not dir.endswith(".pt"):
-            tkinter.messagebox.showerror("错误", "模型错误", parent=self.root)
-        else:
-            if self.inp1.get() == "cpu":
-                device = "cpu"
-            elif self.inp1.get() == "mps":
-                import torch
-
-                if torch.backends.mps.is_available() == False:
-                    tkinter.messagebox.showerror(
-                        "错误", "当前系统版本不支持 mps,", parent=self.root
-                    )
-                device = "mps"
+        if self.model_type.get() == "yolo":
+            dir = self.path.get()
+            if not dir.endswith(".pt"):
+                tkinter.messagebox.showerror("错误", "模型错误", parent=self.root)
             else:
-                from torch.cuda import is_available
+                if self.inp1.get() == "cpu":
+                    device = "cpu"
+                elif self.inp1.get() == "mps":
+                    import torch
 
-                if is_available() == False:
-                    tkinter.messagebox.showerror(
-                        "错误", "cuda未安装或版本出错，不可使用GPU", parent=self.root
-                    )
-                    return
-                device = 0
-            self.data_path = os.path.dirname(self.path.get()) + "/../data.yaml"
-            self.self_yolo = YoloDetecter(
-                weights=dir, data=self.data_path, device=device
+                    if torch.backends.mps.is_available() == False:
+                        tkinter.messagebox.showerror(
+                            "错误", "当前系统版本不支持 mps,", parent=self.root
+                        )
+                    device = "mps"
+                else:
+                    from torch.cuda import is_available
+
+                    if is_available() == False:
+                        tkinter.messagebox.showerror(
+                            "错误",
+                            "cuda未安装或版本出错，不可使用GPU",
+                            parent=self.root,
+                        )
+                        return
+                    device = 0
+                self.data_path = os.path.dirname(self.path.get()) + "/../data.yaml"
+                self.self_yolo = YoloDetecter(
+                    weights=dir, data=self.data_path, device=device
+                )
+
+                self.path_label.grid_forget()
+                self.path_entry.grid_forget()
+                self.patth_button.grid_forget()
+                self.model_button.grid_forget()
+                self.label1.grid_forget()
+                self.inp1.grid_forget()
+
+                # os.path.dirname(self.path.get()) + "/../data.yaml"
+                GlobalVar.set_value(
+                    "DATA_YAML_PATH", os.path.dirname(self.path.get()) + "/../data.yaml"
+                )  # 该模型对应的数据集yaml文件
+        else:
+            # 处理LLM模型加载逻辑
+            api_key = self.api_key.get()
+            api_endpoint = self.api_endpoint.get()
+
+            if not api_key:
+                tkinter.messagebox.showerror("错误", "请输入API密钥", parent=self.root)
+                return
+
+            if not api_endpoint:
+                tkinter.messagebox.showerror(
+                    "错误", "请输入API接口地址", parent=self.root
+                )
+                return
+
+            # 这里可以添加实际的LLM模型初始化代码
+            self.llm_recognizer = MultimodalRecognizerArk(
+                api_key=api_key, api_endpoint=api_endpoint
+            )
+            print(
+                f"LLM配置已设置 - API密钥: {api_key[:4]}****, API端点: {api_endpoint}"
             )
 
-            self.path_label.grid_forget()
-            self.path_entry.grid_forget()
-            self.patth_button.grid_forget()
-            self.model_button.grid_forget()
-            self.label1.grid_forget()
-            self.inp1.grid_forget()
-            self.camera_label.grid(row=3, column=0)
-            self.cameraselect.grid(row=3, column=1)
-            # os.path.dirname(self.path.get()) + "/../data.yaml"
-            GlobalVar.set_value(
-                "DATA_YAML_PATH", os.path.dirname(self.path.get()) + "/../data.yaml"
-            )  # 该模型对应的数据集yaml文件
+            # 隐藏配置项，显示摄像头选择
+            self.api_key_label.grid_forget()
+            self.api_key_entry.grid_forget()
+            self.api_endpoint_label.grid_forget()
+            self.api_endpoint_entry.grid_forget()
+
+        self.camera_label.grid(row=3, column=0)
+        self.cameraselect.grid(row=3, column=1)
 
     def select_path(self):
         path_ = filedialog.askopenfilename(initialdir=DEFAULT_MODEL_PATH)
@@ -373,36 +484,45 @@ class DetecterWindow(Observable):
                 # LOG.debug(f"相邻两帧像素差异过大，画面不稳定:{max_diff}")
                 continue
 
-            # 取最大轮廓，即棋盘
-            focus_image, has_res = focus_finder.find_chessboard(cur_img)
-            if has_res:
-                # tk_show_img_opencv_only(self.panel, focus_image, suffix="[focus image]")
-                # res_img: 经过检测标注的图像（可能在目标周围绘制了边界框）
-                # yolo_list: 检测到的目标列表，包含了检测到的对象类别、位置等信息
-                res_img, yolo_list = self.self_yolo.detect(focus_image)
-                tk_show_img_opencv_only(self.panel, res_img, suffix="[yolo detect]")
-                # 将YOLO输出的归一化坐标转换为像素坐标
-                pixel_list = yolo_to_pixel(
-                    yolo_list, res_img.shape[0], res_img.shape[1]
+            if self.model_type.get() == "llm":
+                # 这里添加LLM的图像分析逻辑，调用LLM模型进行分析，并发布结果
+                result = self.llm_recognizer.detect_chess_pieces(
+                    cur_img, model="doubao-seed-2-0-lite-260215"
                 )
+                if result:
+                    self.publish("llm_res", result["pieces"])
+                pass
+            else:
+                # 取最大轮廓，即棋盘
+                focus_image, has_res = focus_finder.find_chessboard(cur_img)
+                if has_res:
+                    # tk_show_img_opencv_only(self.panel, focus_image, suffix="[focus image]")
+                    # res_img: 经过检测标注的图像（可能在目标周围绘制了边界框）
+                    # yolo_list: 检测到的目标列表，包含了检测到的对象类别、位置等信息
+                    res_img, yolo_list = self.self_yolo.detect(focus_image)
+                    tk_show_img_opencv_only(self.panel, res_img, suffix="[yolo detect]")
+                    # 将YOLO输出的归一化坐标转换为像素坐标
+                    pixel_list = yolo_to_pixel(
+                        yolo_list, res_img.shape[0], res_img.shape[1]
+                    )
 
-                # 按类型排序，如果相邻两帧的检测结果相同，则认为是可信的
-                pixel_list.sort(key=lambda x: x[2], reverse=False)
-                new_class_list = [i[2] for i in pixel_list]
-                if len(new_class_list) == 0:
-                    # LOG.debug(f"目标检测结果为空:{new_class_list}")
-                    continue
-                is_stable = False
-                if new_class_list == last_class_list:
-                    # LOG.debug(f"可信的目标检测结果:{new_class_list}")
-                    # LOG.debug(f"可信的目标检测结果:{pixel_list}")
-                    is_stable = True
-                last_class_list = new_class_list
+                    # 按类型排序，如果相邻两帧的检测结果相同，则认为是可信的
+                    pixel_list.sort(key=lambda x: x[2], reverse=False)
+                    new_class_list = [i[2] for i in pixel_list]
+                    if len(new_class_list) == 0:
+                        # LOG.debug(f"目标检测结果为空:{new_class_list}")
+                        continue
+                    is_stable = False
+                    if new_class_list == last_class_list:
+                        # LOG.debug(f"可信的目标检测结果:{new_class_list}")
+                        # LOG.debug(f"可信的目标检测结果:{pixel_list}")
+                        is_stable = True
+                    last_class_list = new_class_list
 
-                if self.connect_flag and is_stable:
-                    # 发布检测结果，供机器人控制模块使用
-                    self.publish("yolo_res", pixel_list, res_img.shape)
-                    LOG.debug(f"publish yolo_res to robot")
+                    if self.connect_flag and is_stable:
+                        # 发布检测结果，供机器人控制模块使用
+                        self.publish("yolo_res", pixel_list, res_img.shape)
+                        LOG.debug(f"publish yolo_res to robot")
 
             # LOG.debug(f"本帧运行时间:{time.time() - start_time}")
             time.sleep(0.2)

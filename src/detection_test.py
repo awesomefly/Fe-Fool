@@ -1,10 +1,11 @@
 import cv2
 import sys
 import time
-from windows.image_find_focus import FocusFinder
+from image.image_find_focus import FocusFinder
 from yolov5.detect_self import YoloDetecter
 from windows.window_detection import DEFAULT_MODEL_PATH, yolo_to_pixel
 from robot import robot_master, LOG, ROOT
+from llm.multimodal_recognition_ark import MultimodalRecognizerArk
 
 
 def diagnose_camera_issues():
@@ -287,9 +288,9 @@ def detect_and_play():
         focus_image, has_res = focus_finder.find_chessboard(cur_img)
         if has_res:
             cv2.imshow("Chessboard", focus_image)
-            key = cv2.waitKey(100000) & 0xFF
-            if key == 27 or key == ord("q"):  # 按Esc或q退出
-                break
+            # key = cv2.waitKey(100000) & 0xFF
+            # if key == 27 or key == ord("q"):  # 按Esc或q退出
+            #     break
 
             res_img, yolo_list = self_yolo.detect(focus_image)
             # 将YOLO输出的归一化坐标转换为像素坐标
@@ -297,11 +298,36 @@ def detect_and_play():
 
             # 按类型排序，如果相邻两帧的检测结果相同，则认为是可信的
             pixel_list.sort(key=lambda x: x[2], reverse=False)
-            # print(f"pixel_list:{pixel_list},{res_img.shape}")
+            print(f"pixel_list:{pixel_list},{res_img.shape}")
 
             master.receive_message(
                 topic="yolo_res", message=(pixel_list, res_img.shape)
             )
+
+
+def ai_detect_and_play():
+    imgs = [
+        "/Users/bytedance/Downloads/IMG_5664.png",
+        "/Users/bytedance/Downloads/IMG_5665.png",
+    ]
+
+    llm_recognizer = MultimodalRecognizerArk(
+        api_key="d5155a8e-50ea-43b3-9eaf-3abc6eba852a",
+        endpoint="https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+    )
+
+    master = robot_master.ChessRobotMaster(think_depth=1)  # 象棋
+    for img in imgs:
+        # start_time = time.time()
+        cur_img = cv2.imread(img)
+        if cur_img is None:
+            continue
+
+        result = llm_recognizer.detect_chess_pieces(
+            cur_img, model="doubao-seed-2-0-lite-260215"
+        )
+        if result:
+            master.receive_message(topic="llm_res", message=result["pieces"])
 
 
 def play():
@@ -327,13 +353,20 @@ def play():
 
 
 if __name__ == "__main__":
-    # diagnose_camera_issues()
-    # get_camera_info()
-    # get_camera_resolutions()
-    # test_camera_auto_focus()
-    # variance_of_laplacian()
-    find_focus()
-    # find_chessboard()
-    # detect_and_play()
-    # play()
-    # detect()
+    try:
+        # diagnose_camera_issues()
+        # get_camera_info()
+        # get_camera_resolutions()
+        # test_camera_auto_focus()
+        # variance_of_laplacian()
+        # find_focus()
+        # find_chessboard()
+        # detect_and_play()
+        ai_detect_and_play()
+        # play()
+        # detect()
+    except Exception as e:
+        print(e)
+        import traceback
+
+        traceback.print_exc()

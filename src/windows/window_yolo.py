@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import tkinter
-from windows import image_generate_dataset
+from image import image_generate_dataset
 
 
 class YoloDataWindow:

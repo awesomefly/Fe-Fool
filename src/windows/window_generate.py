@@ -10,7 +10,7 @@ from PIL import Image, ImageTk
 
 from rembg import remove
 from rembg.session_factory import new_session
-from windows.image_find_focus import FocusFinder
+from image.image_find_focus import FocusFinder
 from robot.tools import get_cameras, YamlHandler
 from robot import LOG, PARAMS_YAML, IMAGE_DATA_PATH
 

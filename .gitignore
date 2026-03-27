@@ -3,5 +3,4 @@ venv/
 .idea/
 dist/
 **/__pycache__/
-image_data/
 src/.DS_Store

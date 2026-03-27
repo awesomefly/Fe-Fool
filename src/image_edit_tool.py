@@ -3,7 +3,7 @@ import os
 import sys
 import time
 import numpy as np
-from windows.image_find_focus import FocusFinder
+from image.image_find_focus import FocusFinder
 
 
 def image_show(frame, title="Image"):

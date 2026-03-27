@@ -484,7 +484,7 @@ def print_pos(pos):
     print('    ａｂｃｄｅｆｇｈｉ\n\n')
 
 
-def name2letter(name):
+def shortname(name):
     pieces = {
         'hongbing': 'P',
         'hongpao': 'C',
@@ -529,7 +529,7 @@ class Chess:
             name_list.append(pos[3])
         pos_idx_list = [parse(pos_str) for pos_str in pos_str_list]  # pos2idx
         for i, idx in enumerate(pos_idx_list):
-            self.hist[-1] = self.hist[-1].update(idx, name2letter(name_list[i]))
+            self.hist[-1] = self.hist[-1].update(idx, shortname(name_list[i]))
 
     def pos_to_str(self, pick_pos, down_pos):
         return (
