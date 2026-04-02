@@ -307,8 +307,8 @@ def detect_and_play():
 
 def ai_detect_and_play():
     imgs = [
-        "/Users/bytedance/Downloads/IMG_5664.png",
-        "/Users/bytedance/Downloads/IMG_5665.png",
+        # "/Users/bytedance/Downloads/IMG_5664.png",
+        "/Users/bytedance/Downloads/IMG_5655.png",
     ]
 
     llm_recognizer = MultimodalRecognizerArk(
@@ -326,8 +326,9 @@ def ai_detect_and_play():
         result = llm_recognizer.detect_chess_pieces(
             cur_img, model="doubao-seed-2-0-lite-260215"
         )
+        print(f"result:{result}")
         if result:
-            master.receive_message(topic="llm_res", message=result["pieces"])
+            master.receive_message(topic="llm_res", message=(result["pieces"],))
 
 
 def play():

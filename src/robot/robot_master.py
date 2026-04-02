@@ -840,6 +840,7 @@ class ChessRobotMaster(BoardGamesRobotMaster):
         return index
 
     def pos_group(self, pos_set):
+        print(f"pos_set:{pos_set}")
         our_pos_set = set()
         robot_pos_set = set()
         for x, y, c, n in pos_set:

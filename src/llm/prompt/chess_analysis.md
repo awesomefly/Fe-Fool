@@ -2,11 +2,15 @@
 
 ## 一、统一标准坐标体系（红方视角，行业通用）
 
+
+
 中国象棋红方视角的标准坐标规则（完全匹配棋盘物理标注）：
 
-- **列（路）**：棋盘底部从左到右标注 9 8 7 6 5 4 3 2 1 → 对应红方的9路（最左）到1路（最右）
+- **列（路）**：棋盘底部从左到右标注 8 7 6 5 4 3 2 1 0 → 对应红方的8路（最左）到0路（最右），共9列， 第 4 列是中间列。
 
-- **行（线）**：从红方底线（棋盘最下方）为1线，向上依次递增，黑方底线（棋盘最上方）为10线。
+- **行（线）**：从红方底线（棋盘最下方）为0线，向上依次递增，黑方底线（棋盘最上方）为9线。 （楚河汉界在 4 行和 5 行之间）
+
+**重要提示**：请先根据「红帅」和「黑将」及「楚河汉界」所在的位置关系判断图片是否为红方视角，如果不是请正确旋转图片，「红帅」所在一端作为棋盘最下方，「黑将」所在一端作为棋盘上方。
 
 ## 二、JSON返回格式（严格约束）
 
@@ -29,8 +33,8 @@
 ```
 
 其中：
-- **x**: 横坐标（1-9，对应1路到9路）
-- **y**: 纵坐标（1-10，对应1线到10线）
+- **x**: 横坐标（0-8，对应0路到8路）
+- **y**: 纵坐标（0-9，对应0线到9线）
 - **c**: 分类（red/black）
 - **n**: 名称（hongbing、hongpao、heiche、heima、heixiang、heishi、heijiang、heipao、heibing、 hongche、 hongma、hongxiang、hongshi、hongshuai）
 
@@ -67,7 +71,7 @@
 ```json
 {
   "pieces": [
-    [5, 1, "red", "hongbing"],
+    [5, 0, "red", "hongbing"],
     [4, 1, "black", "heishi"],
     [6, 1, "black", "heishi"],
     [3, 1, "black", "heixiang"],
@@ -75,30 +79,30 @@
     [2, 1, "black", "heima"],
     [8, 1, "black", "heima"],
     [1, 1, "black", "heiche"],
-    [9, 1, "black", "heiche"],
+    [8, 1, "black", "heiche"],
     [2, 3, "red", "hongpao"],
     [8, 3, "red", "hongpao"],
     [1, 4, "red", "hongbing"],
     [3, 4, "red", "hongbing"],
     [5, 4, "red", "hongbing"],
     [7, 4, "red", "hongbing"],
-    [9, 4, "red", "hongbing"],
-    [5, 10, "black", "heijiang"],
-    [4, 10, "black", "heishi"],
-    [6, 10, "black", "heishi"],
-    [3, 10, "black", "heixiang"],
-    [7, 10, "black", "heixiang"],
-    [2, 10, "black", "heima"],
-    [8, 10, "black", "heima"],
-    [1, 10, "black", "heiche"],
-    [9, 10, "black", "heiche"],
+    [8, 4, "red", "hongbing"],
+    [5, 9, "black", "heijiang"],
+    [4, 9, "black", "heishi"],
+    [6, 9, "black", "heishi"],
+    [3, 9, "black", "heixiang"],
+    [7, 9, "black", "heixiang"],
+    [2, 9, "black", "heima"],
+    [8, 9, "black", "heima"],
+    [1, 9, "black", "heiche"],
+    [8, 9, "black", "heiche"],
     [2, 8, "black", "heipao"],
     [8, 8, "black", "heipao"],
     [1, 7, "black", "heibing"],
     [3, 7, "black", "heibing"],
     [5, 7, "black", "heibing"],
     [7, 7, "black", "heibing"],
-    [9, 7, "black", "heibing"]
+    [8, 7, "black", "heibing"]
   ],
   "analysis": {
     "advantage": "balanced",
@@ -120,8 +124,7 @@
 
 ```
 黑方
-10 ┏━┯━┯━┯━┯━┯━┯━┯━┓
-9  ┠─┼─┼─┼─┼─┼─┼─┼─┨
+9  ┏━┯━┯━┯━┯━┯━┯━┯━┓
 8  ┠─┼─┼─┼─┼─┼─┼─┼─┨
 7  ┠─┼─┼─┼─┼─┼─┼─┼─┨
 6  ┠─┼─┼─┼─┼─┼─┼─┼─┨
@@ -129,8 +132,9 @@
 4  ┠─┼─┼─┼─┼─┼─┼─┼─┨
 3  ┠─┼─┼─┼─┼─┼─┼─┼─┨
 2  ┠─┼─┼─┼─┼─┼─┼─┼─┨
-1  ┗━┷━┷━┷━┷━┷━┷━┷━┛
-   9 8 7 6 5 4 3 2 1
+1  ┠─┼─┼─┼─┼─┼─┼─┼─┨
+0  ┗━┷━┷━┷━┷━┷━┷━┷━┛
+   8 7 6 5 4 3 2 1 0
    红方
 ```
 
